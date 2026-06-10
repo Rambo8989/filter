@@ -334,27 +334,21 @@ const ipCache = new Map<string, { result: IPAnalysis; ts: number }>()
 const CACHE_TTL = 10 * 60 * 1000 // 10 minutes
 
 // ── Proxy header analysis ─────────────────────────────────────
+// NOTE: `via`, `x-forwarded-host`, `forwarded`, and chained
+// `x-forwarded-for` are added by the hosting CDN itself (Netlify, Vercel,
+// Cloudflare) on EVERY request — they are not signals of a client-side
+// proxy/VPN. Visitor-side proxy/VPN/datacenter detection is handled by
+// isDatacenterOrProxy() using the real client IP.
 export function detectProxyHeaders(headers: Record<string, string | null>): {
   isProxy: boolean
   signals: string[]
 } {
   const signals: string[] = []
 
-  // Multiple IPs in X-Forwarded-For = traffic passed through proxy chain
-  const xff = headers["x-forwarded-for"] || ""
-  const xffParts = xff.split(",").map(s => s.trim()).filter(Boolean)
-  if (xffParts.length > 1) signals.push("proxy_chain_xff")
-
-  // Via header = definite HTTP proxy
-  if (headers["via"]) signals.push("via_header_proxy")
-
-  // Both X-Real-IP and X-Forwarded-For present at the same time
-  if (headers["x-real-ip"] && xff) signals.push("dual_ip_headers")
-
-  // Explicit proxy-related headers
+  // Explicit client-side proxy headers (rare, not added by major CDNs)
   const proxySpecific = [
-    "proxy-connection", "x-proxy-id", "x-forwarded-host",
-    "forwarded", "x-proxyuser-ip", "x-bluecoat-via",
+    "proxy-connection", "x-proxy-id",
+    "x-proxyuser-ip", "x-bluecoat-via",
     "x-six-signature", "x-coming-from", "proxy-authorization",
     "x-proxy-connection",
   ]

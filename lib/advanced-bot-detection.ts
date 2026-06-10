@@ -210,21 +210,6 @@ export function detectAdvancedBot(
   // Modern browsers always send sec-fetch-* headers
   if (!secFetch && !secFetchMode) { riskScore += 15; signals.push("no_sec_fetch_headers") }
 
-  // ── Layer 2b: Proxy / VPN header signals ─────────────
-  // Via header = HTTP proxy in chain
-  if (headers["via"]) { riskScore += 20; signals.push("via_header") }
-
-  // Proxy-Connection header = explicit proxy
-  if (headers["proxy-connection"]) { riskScore += 25; signals.push("proxy_connection_header") }
-
-  // Multiple IPs in X-Forwarded-For = proxy chain
-  const xff = headers["x-forwarded-for"] || ""
-  const xffCount = xff.split(",").filter(s => s.trim()).length
-  if (xffCount > 1) { riskScore += 15; signals.push(`proxy_chain_${xffCount}hops`) }
-
-  // X-Forwarded-For AND X-Real-IP both set = proxy
-  if (headers["x-real-ip"] && xff) { riskScore += 10; signals.push("dual_ip_headers") }
-
   // ── Layer 3: User-Agent structure analysis ────────────
   const uaLen = userAgent.length
   if (uaLen < 20)  { riskScore += 35; signals.push("very_short_ua") }
