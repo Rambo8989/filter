@@ -99,6 +99,7 @@ export async function GET(request: NextRequest) {
           safe_page_url: website.safe_page_url,
         } : null,
         ip, country, userAgent, headers,
+        allHeaders: Object.fromEntries(request.headers.entries()),
       }, null, 2), { headers: { "Content-Type": "application/json" } })
     }
 
