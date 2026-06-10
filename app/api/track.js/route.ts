@@ -4,6 +4,10 @@ import { detectAdvancedBot } from "@/lib/advanced-bot-detection"
 import { isDatacenterOrProxy, detectProxyHeaders } from "@/lib/datacenter-detection"
 import { getIPReputation, markIPBlocked, markIPClean, isRepeatOffender } from "@/lib/ip-reputation"
 
+// Each visitor gets a different decision based on IP/UA/country — never
+// statically generate or CDN-cache this route
+export const dynamic = "force-dynamic"
+
 // Returns JS that does nothing — visitor stays on page
 function safeJs(): string {
   return "(function(){})();"
