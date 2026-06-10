@@ -1,0 +1,32 @@
+import type React from "react"
+import type { Metadata } from "next"
+import { Inter } from "next/font/google"
+import "./globals.css"
+import { AccessLogger } from "@/components/access-logger"
+
+const inter = Inter({ subsets: ["latin"] })
+
+export const metadata: Metadata = {
+  title: "Traffic Filter System",
+  description: "Advanced traffic filtering and bot detection system",
+  keywords: "traffic filter, bot detection, cloaking, campaign management",
+  robots: "noindex, nofollow",
+    generator: 'v0.app'
+}
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  return (
+    <html lang="en">
+      <body className={inter.className}>
+        {/* Global Access Logger - tracks all page visits */}
+        <AccessLogger websiteId="demo" campaignCode="DEMO001" />
+
+        <div className="min-h-screen bg-background">{children}</div>
+      </body>
+    </html>
+  )
+}
