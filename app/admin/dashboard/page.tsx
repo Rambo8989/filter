@@ -14,11 +14,14 @@ interface AccessLog {
   is_bot: boolean
   bot_type: string | null
   bot_confidence: number
-  action: string
+  action_taken: string   // DB field name
+  action?: string        // alias — some places use this
   page_shown: string
   created_at: string
   referrer: string | null
   pathname: string
+  reason: string | null
+  ad_platform: string | null
 }
 
 interface Statistics {
@@ -49,6 +52,43 @@ interface DashboardData {
   analytics: Analytics
 }
 
+function isBlocked(action: string | undefined): boolean {
+  const a = (action || "").toLowerCase()
+  return a.includes("safe") || a.includes("blocked") || a.includes("landing") || a === "stay_on_safe" || a === "stay_on_landing"
+}
+
+function actionLabel(action: string | undefined): string {
+  const a = (action || "").toLowerCase()
+  if (a === "redirect_money" || a === "redirect_safe")  return "Allowed"
+  if (a === "stay_on_safe" || a === "stay_on_landing")  return "Blocked"
+  if (a === "blocked")                                   return "Blocked"
+  if (a === "campaign_paused")                           return "Paused"
+  return "Allowed"
+}
+
+function getBrowserName(userAgent: string | null | undefined): string {
+  const ua = userAgent || ""
+  if (!ua || ua.toLowerCase() === "unknown") return "Unknown"
+  if (/curl\//i.test(ua))            return "curl"
+  if (/wget\//i.test(ua))            return "Wget"
+  if (/python-requests/i.test(ua))   return "Python"
+  if (/postman/i.test(ua))           return "Postman"
+  if (/edg\//i.test(ua))             return "Edge"
+  if (/opr\/|opera/i.test(ua))       return "Opera"
+  if (/chrome\/|crios\//i.test(ua))  return "Chrome"
+  if (/firefox\/|fxios\//i.test(ua)) return "Firefox"
+  if (/safari\//i.test(ua))          return "Safari"
+  if (/msie|trident/i.test(ua))      return "Internet Explorer"
+  if (/bot|crawler|spider/i.test(ua)) return "Bot"
+  return "Other"
+}
+
+function pageLabel(pageShown: string | undefined): { text: string; className: string } {
+  if (pageShown === "money") return { text: "Money Page", className: "bg-purple-100 text-purple-800" }
+  if (pageShown === "safe")  return { text: "Safe Page", className: "bg-gray-100 text-gray-700" }
+  return { text: "—", className: "bg-gray-100 text-gray-500" }
+}
+
 export default function AdminDashboard() {
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -60,19 +100,52 @@ export default function AdminDashboard() {
       setLoading(true)
       setError(null)
 
-      const response = await fetch("/api/log-current-access")
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), 8000)
+
+      const response = await fetch("/api/access-logs?limit=100", { signal: controller.signal })
+        .catch(() => { throw new Error("Database connection timeout — check Supabase project is active") })
+      clearTimeout(timeout)
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`)
       }
 
-      const result: DashboardData = await response.json()
+      const raw = await response.json()
+      const logs: AccessLog[] = Array.isArray(raw) ? raw : []
 
-      if (!result.success) {
-        throw new Error("Failed to fetch dashboard data")
-      }
+      const total = logs.length
+      const bots = logs.filter(l => l.is_bot).length
+      const humans = total - bots
+      const blocked = logs.filter(l => isBlocked(l.action_taken || l.action)).length
 
-      setData(result)
+      const countries: Record<string, number> = {}
+      const bot_types: Record<string, number> = {}
+      const hourlyMap: Record<number, { total: number; bots: number; humans: number }> = {}
+
+      logs.forEach(l => {
+        if (l.country) countries[l.country] = (countries[l.country] || 0) + 1
+        if (l.is_bot && l.bot_type) bot_types[l.bot_type] = (bot_types[l.bot_type] || 0) + 1
+        const hour = new Date(l.created_at).getHours()
+        if (!hourlyMap[hour]) hourlyMap[hour] = { total: 0, bots: 0, humans: 0 }
+        hourlyMap[hour].total++
+        l.is_bot ? hourlyMap[hour].bots++ : hourlyMap[hour].humans++
+      })
+
+      const hourly = Object.entries(hourlyMap).map(([hour, d]) => ({ hour: Number(hour), ...d }))
+
+      setData({
+        success: true,
+        logs,
+        statistics: {
+          total, bots, humans,
+          allowed: humans,
+          blocked,
+          bot_percentage: total > 0 ? ((bots / total) * 100).toFixed(1) : "0",
+          block_percentage: total > 0 ? ((blocked / total) * 100).toFixed(1) : "0",
+        },
+        analytics: { countries, bot_types, hourly },
+      })
       setLastUpdated(new Date())
     } catch (err) {
       console.error("Dashboard fetch error:", err)
@@ -90,31 +163,7 @@ export default function AdminDashboard() {
     return () => clearInterval(interval)
   }, [])
 
-  if (loading && !data) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4 text-blue-600" />
-          <p className="text-gray-600">Loading dashboard data...</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (error && !data) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <AlertTriangle className="h-8 w-8 mx-auto mb-4 text-red-600" />
-          <p className="text-red-600 mb-4">Error loading dashboard: {error}</p>
-          <Button onClick={fetchData} variant="outline">
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Retry
-          </Button>
-        </div>
-      </div>
-    )
-  }
+  // Never block rendering — show dashboard shell immediately
 
   const stats = data?.statistics || {
     total: 0,
@@ -151,10 +200,27 @@ export default function AdminDashboard() {
           {lastUpdated && <p className="text-sm text-gray-500">Last updated: {lastUpdated.toLocaleTimeString()}</p>}
           <Button onClick={fetchData} disabled={loading} variant="outline">
             <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
-            Refresh
+            {loading ? "Loading..." : "Refresh"}
           </Button>
         </div>
       </div>
+
+      {/* Status banners */}
+      {error && (
+        <div style={{ background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 8, padding: "12px 16px", display: "flex", alignItems: "center", gap: 10 }}>
+          <AlertTriangle className="h-4 w-4 text-red-500" style={{ flexShrink: 0 }} />
+          <div style={{ fontSize: 13 }}>
+            <span style={{ color: "#DC2626", fontWeight: 600 }}>Database Error: </span>
+            <span style={{ color: "#B91C1C" }}>{error}</span>
+            <span style={{ color: "#6B7280", marginLeft: 8 }}>— Supabase SQL Editor mein <code>scripts/complete-setup.sql</code> run karo, aur project paused ho to resume karo.</span>
+          </div>
+        </div>
+      )}
+      {!error && !loading && stats.total === 0 && (
+        <div style={{ background: "#F0FDF4", border: "1px solid #BBF7D0", borderRadius: 8, padding: "12px 16px", fontSize: 13, color: "#15803D" }}>
+          Database connected. Abhi tak koi visit log nahi hua — campaign ka tracking code safe page pe install karo.
+        </div>
+      )}
 
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -235,6 +301,11 @@ export default function AdminDashboard() {
             ) : (
               <p className="text-gray-500 text-center py-4">No country data available</p>
             )}
+            {topCountries.length > 0 && topCountries.every(([c]) => c === "UNKNOWN") && (
+              <p className="text-xs text-gray-400 mt-3">
+                Country localhost par detect nahi hoti (Cloudflare/Vercel ke geo headers nahi milte). Live domain (limbun.online) se aane wale visits par real country code dikhega.
+              </p>
+            )}
           </CardContent>
         </Card>
 
@@ -314,7 +385,9 @@ export default function AdminDashboard() {
         <CardContent>
           {logs.length > 0 ? (
             <div className="space-y-3">
-              {logs.slice(0, 10).map((log) => (
+              {logs.slice(0, 10).map((log) => {
+                const page = pageLabel(log.page_shown)
+                return (
                 <div key={log.id} className="flex items-center justify-between p-3 border rounded-lg">
                   <div className="flex items-center space-x-3">
                     {log.is_bot ? (
@@ -323,9 +396,10 @@ export default function AdminDashboard() {
                       <Users className="h-4 w-4 text-green-500" />
                     )}
                     <div>
-                      <div className="flex items-center space-x-2">
+                      <div className="flex items-center flex-wrap gap-2">
                         <span className="font-mono text-sm">{log.ip_address}</span>
-                        <span className="text-xs bg-gray-100 px-2 py-1 rounded">{log.country}</span>
+                        <span className="text-xs bg-gray-100 px-2 py-1 rounded" title="Country">{log.country || "UNKNOWN"}</span>
+                        <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded" title="Browser">{getBrowserName(log.user_agent)}</span>
                         <span
                           className={`text-xs px-2 py-1 rounded ${
                             log.is_bot ? "bg-red-100 text-red-800" : "bg-green-100 text-green-800"
@@ -335,16 +409,19 @@ export default function AdminDashboard() {
                         </span>
                         <span
                           className={`text-xs px-2 py-1 rounded ${
-                            log.action.includes("blocked")
+                            isBlocked(log.action_taken)
                               ? "bg-orange-100 text-orange-800"
-                              : "bg-blue-100 text-blue-800"
+                              : "bg-green-100 text-green-800"
                           }`}
                         >
-                          {log.action}
+                          {actionLabel(log.action_taken)}
+                        </span>
+                        <span className={`text-xs px-2 py-1 rounded ${page.className}`} title="Page shown to visitor">
+                          {page.text}
                         </span>
                       </div>
                       <p className="text-xs text-gray-500 truncate max-w-md mt-1">
-                        {log.pathname} • {log.user_agent.substring(0, 60)}...
+                        {log.pathname || "/"} • {(log.user_agent || "Unknown").substring(0, 60)}...
                       </p>
                     </div>
                   </div>
@@ -355,7 +432,8 @@ export default function AdminDashboard() {
                     )}
                   </div>
                 </div>
-              ))}
+                )
+              })}
             </div>
           ) : (
             <div className="text-center py-8 text-gray-500">

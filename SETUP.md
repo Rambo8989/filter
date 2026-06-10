@@ -29,6 +29,13 @@
    JWT_SECRET                  = (any random 32+ char string)
    ```
 4. Click **Deploy** → Done! ✅
+5. After deploy finishes, copy your live URL (e.g. `https://your-app.vercel.app`)
+6. Go to **Project Settings → Environment Variables** → add one more:
+   ```
+   APP_URL = https://your-app.vercel.app
+   ```
+7. Go to **Deployments → ⋯ → Redeploy** so the new variable takes effect.
+   Without `APP_URL`, generated tracking codes will point to `localhost` and won't work on real websites!
 
 ## Step 4 — First Login
 

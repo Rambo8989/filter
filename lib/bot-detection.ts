@@ -52,7 +52,7 @@ export interface BotDetectionResult {
   pattern?: string
 }
 
-export function detectBot(userAgent: string, ip: string): BotDetectionResult {
+export function detectBot(userAgent: string, _ip?: string): BotDetectionResult {
   const ua = userAgent.toLowerCase()
 
   // Check for bot patterns
@@ -221,39 +221,12 @@ export function getCountryFromTimezone(timezone: string): string {
   return timezoneToCountry[timezone] || "unknown"
 }
 
-export async function isDataCenterIP(ip: string): Promise<boolean> {
-  // Simple check for common data center IP ranges
-  const dataCenterRanges = [
-    "52.0.0.0/8", // AWS
-    "54.0.0.0/8", // AWS
-    "23.0.0.0/8", // Akamai
-    "104.16.0.0/12", // Cloudflare
-    "172.64.0.0/13", // Cloudflare
-  ]
 
-  // In a real implementation, you would check against actual IP ranges
-  // For now, return false to avoid blocking legitimate users
-  return false
-}
-
-export async function isAdPlatformOfficeIP(ip: string): Promise<boolean> {
-  // Check for known ad platform office IP ranges
-  const adPlatformRanges = [
-    "66.249.64.0/19", // Google
-    "173.252.64.0/18", // Facebook
-    "199.16.156.0/22", // Twitter
-  ]
-
-  // In a real implementation, you would check against actual IP ranges
-  // For now, return false to avoid blocking legitimate users
-  return false
-}
-
-export function calculateRiskScore(userAgent: string, ip: string, referrer: string, country: string): number {
+export function calculateRiskScore(userAgent: string, _ip: string, referrer: string, country: string): number {
   let score = 0
 
   // Bot detection adds high risk
-  const botResult = detectBot(userAgent, ip)
+  const botResult = detectBot(userAgent, _ip)
   if (botResult.isBot) {
     score += botResult.confidence * 100
   }
@@ -264,9 +237,9 @@ export function calculateRiskScore(userAgent: string, ip: string, referrer: stri
     score += 30
   }
 
-  // Missing or suspicious referrer
-  if (!referrer || referrer.includes("facebook.com") || referrer.includes("google.com")) {
-    score += 10
+  // Only penalize completely missing referrer for non-direct traffic
+  if (!referrer) {
+    score += 5
   }
 
   // High-risk countries (example)

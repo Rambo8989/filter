@@ -54,7 +54,8 @@ export function AdPlatformSelector({ selected, onChange, disabled }: AdPlatformS
     if (disabled) return
     const ids = filtered.filter(p => p.category !== "ad_verification").map(p => p.id)
     const allSel = ids.every(id => selected.includes(id))
-    onChange(allSel ? selected.filter(id => !ids.includes(id)) : [...new Set([...selected, ...ids])])
+    const merged = [...selected, ...ids]
+    onChange(allSel ? selected.filter(id => !ids.includes(id)) : merged.filter((id, i) => merged.indexOf(id) === i))
   }
 
   const categoryList = ["all", ...CATEGORY_ORDER.filter(c => platforms.some(p => p.category === c))]

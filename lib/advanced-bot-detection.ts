@@ -124,6 +124,33 @@ export const PRODUCTION_BOT_PATTERNS = [
   { pattern: /ccbot/i,               type: "Common Crawl",       category: "ai_crawler",       confidence: 0.99 },
   { pattern: /diffbot/i,             type: "Diffbot",            category: "ai_crawler",       confidence: 0.99 },
 
+  // Spy / competitor intelligence tools
+  { pattern: /adplexity/i,           type: "AdPlexity Spy",      category: "spy_tool",         confidence: 0.99 },
+  { pattern: /adspy\.io/i,           type: "AdSpy",              category: "spy_tool",         confidence: 0.99 },
+  { pattern: /whatrunswhere/i,       type: "WhatRunsWhere",      category: "spy_tool",         confidence: 0.99 },
+  { pattern: /adbeat/i,              type: "AdBeat",             category: "spy_tool",         confidence: 0.99 },
+  { pattern: /spyfu/i,               type: "SpyFu",              category: "spy_tool",         confidence: 0.99 },
+  { pattern: /anstrex/i,             type: "Anstrex",            category: "spy_tool",         confidence: 0.99 },
+  { pattern: /bigspy/i,              type: "BigSpy",             category: "spy_tool",         confidence: 0.99 },
+  { pattern: /poweradspy/i,          type: "PowerAdSpy",         category: "spy_tool",         confidence: 0.99 },
+  { pattern: /nativeadsbuzz/i,       type: "NativeAdsBuzz",      category: "spy_tool",         confidence: 0.99 },
+  { pattern: /admobispy/i,           type: "AdMobiSpy",          category: "spy_tool",         confidence: 0.99 },
+  { pattern: /adsvantage/i,          type: "AdSvantage",         category: "spy_tool",         confidence: 0.99 },
+  { pattern: /similarweb.*bot/i,     type: "SimilarWeb Bot",     category: "spy_tool",         confidence: 0.99 },
+  { pattern: /semrush.*bot/i,        type: "SEMrush Bot",        category: "spy_tool",         confidence: 0.99 },
+  { pattern: /ahrefs.*bot/i,         type: "Ahrefs Bot",         category: "spy_tool",         confidence: 0.99 },
+  { pattern: /mobyaffiliates/i,      type: "MobyAffiliates",     category: "spy_tool",         confidence: 0.95 },
+  // Ad fraud measurement
+  { pattern: /comscore/i,            type: "ComScore",           category: "ad_fraud_tool",    confidence: 0.99 },
+  { pattern: /nielseniqbot/i,        type: "Nielsen IQ Bot",     category: "ad_fraud_tool",    confidence: 0.99 },
+  { pattern: /adscore/i,             type: "AdScore",            category: "ad_fraud_tool",    confidence: 0.99 },
+  { pattern: /cxense/i,              type: "Cxense",             category: "ad_fraud_tool",    confidence: 0.99 },
+  // Security / threat scanners
+  { pattern: /virustotal/i,          type: "VirusTotal",         category: "security_scanner", confidence: 0.99 },
+  { pattern: /shodan/i,              type: "Shodan",             category: "security_scanner", confidence: 0.99 },
+  { pattern: /censys/i,              type: "Censys",             category: "security_scanner", confidence: 0.99 },
+  { pattern: /paloalto/i,            type: "Palo Alto Networks", category: "security_scanner", confidence: 0.95 },
+  { pattern: /recordedfuture/i,      type: "Recorded Future",    category: "security_scanner", confidence: 0.99 },
   // Generic patterns (lower confidence — check last)
   { pattern: /bot\b/i,               type: "Generic Bot",        category: "generic",          confidence: 0.80 },
   { pattern: /\bspider\b/i,          type: "Spider",             category: "generic",          confidence: 0.80 },
@@ -137,7 +164,7 @@ export const PRODUCTION_BOT_PATTERNS = [
 export function detectAdvancedBot(
   userAgent: string,
   headers: Record<string, string | null>,
-  ip: string,
+  _ip?: string,
 ): BotDetectionResult {
   const signals: string[] = []
   let riskScore = 0
@@ -183,6 +210,21 @@ export function detectAdvancedBot(
   // Modern browsers always send sec-fetch-* headers
   if (!secFetch && !secFetchMode) { riskScore += 15; signals.push("no_sec_fetch_headers") }
 
+  // ── Layer 2b: Proxy / VPN header signals ─────────────
+  // Via header = HTTP proxy in chain
+  if (headers["via"]) { riskScore += 20; signals.push("via_header") }
+
+  // Proxy-Connection header = explicit proxy
+  if (headers["proxy-connection"]) { riskScore += 25; signals.push("proxy_connection_header") }
+
+  // Multiple IPs in X-Forwarded-For = proxy chain
+  const xff = headers["x-forwarded-for"] || ""
+  const xffCount = xff.split(",").filter(s => s.trim()).length
+  if (xffCount > 1) { riskScore += 15; signals.push(`proxy_chain_${xffCount}hops`) }
+
+  // X-Forwarded-For AND X-Real-IP both set = proxy
+  if (headers["x-real-ip"] && xff) { riskScore += 10; signals.push("dual_ip_headers") }
+
   // ── Layer 3: User-Agent structure analysis ────────────
   const uaLen = userAgent.length
   if (uaLen < 20)  { riskScore += 35; signals.push("very_short_ua") }
@@ -209,24 +251,24 @@ export function detectAdvancedBot(
   }
 
   // ── Layer 4: Version sanity checks ───────────────────
-  // Chrome versions: 70–130 is realistic
+  // Chrome versions: 70–160 is realistic (updated ceiling for 2025-2026)
   const chromeV = ua.match(/chrome\/(\d+)/i)
   if (chromeV) {
     const v = parseInt(chromeV[1])
-    if (v < 70 || v > 135) { riskScore += 20; signals.push(`odd_chrome_v:${v}`) }
+    if (v < 70 || v > 160) { riskScore += 20; signals.push(`odd_chrome_v:${v}`) }
   }
 
-  // Firefox: 60–125
+  // Firefox: 60–145
   const ffV = ua.match(/firefox\/(\d+)/i)
   if (ffV) {
     const v = parseInt(ffV[1])
-    if (v < 60 || v > 130) { riskScore += 20; signals.push(`odd_firefox_v:${v}`) }
+    if (v < 60 || v > 145) { riskScore += 20; signals.push(`odd_firefox_v:${v}`) }
   }
 
   // ── Layer 5: Inconsistency checks ────────────────────
-  // Claims to be Chrome but on Linux without headless marker — common Puppeteer pattern
+  // Chrome on Linux without Android/ChromeOS — slight signal only (Linux users are real)
   if (ua.includes("chrome") && ua.includes("linux") && !ua.includes("android") && !ua.includes("cros")) {
-    riskScore += 15; signals.push("chrome_linux_suspicious")
+    riskScore += 5; signals.push("chrome_linux")
   }
 
   // Claims Safari but no AppleWebKit version

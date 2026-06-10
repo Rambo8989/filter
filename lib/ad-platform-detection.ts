@@ -24,15 +24,21 @@ export const AD_PLATFORMS: Record<string, AdPlatformInfo> = {
     website: "ads.google.com",
     description: "Search, Display, YouTube, Shopping, Performance Max",
     cidrs: [
-      "66.249.64.0/19","66.249.80.0/20","66.249.96.0/19",
-      "209.85.128.0/17","216.239.32.0/19","172.217.0.0/16",
-      "173.194.0.0/16","74.125.0.0/16","64.233.160.0/19",
-      "72.14.192.0/18","203.208.32.0/19","108.177.8.0/21",
-      "142.250.0.0/15","172.253.0.0/16","216.58.192.0/19",
+      // Google crawler / AdsBot IPs
+      "66.249.64.0/19", "66.249.80.0/20", "66.249.88.0/21",
+      "66.249.92.0/22", "66.249.96.0/19",
+      // Google corporate / reviewer office IPs
+      "209.85.128.0/17", "209.85.192.0/19", "209.85.224.0/19",
+      "173.194.0.0/16",  "74.125.0.0/16",
+      "64.233.160.0/19", "72.14.192.0/18",
+      "216.58.192.0/19", "216.239.32.0/19",
+      "142.250.0.0/15",  "172.217.0.0/16",  "172.253.0.0/16",
+      "108.177.8.0/21",  "108.177.96.0/19",
+      "203.208.32.0/19",
     ],
-    asnKeywords: ["google llc","google cloud","google fiber","google inc"],
-    uaPatterns: [/googlebot/i,/adsbot-google/i,/mediapartners-google/i,/google-inspectiontool/i,/google-adwords/i],
-    referrerPatterns: [/google\.com\/aclk/i,/googleadservices\.com/i,/googlesyndication\.com/i,/doubleclick\.net/i],
+    asnKeywords: ["google llc","google cloud","google fiber","google inc","google ireland"],
+    uaPatterns: [/googlebot/i,/adsbot-google/i,/mediapartners-google/i,/google-inspectiontool/i,/google-adwords/i,/google-read-aloud/i,/google-site-verification/i],
+    referrerPatterns: [/google\.com\/aclk/i,/googleadservices\.com/i,/googlesyndication\.com/i,/doubleclick\.net/i,/google\.com\/ads/i],
   },
 
   microsoft: {
@@ -101,60 +107,98 @@ export const AD_PLATFORMS: Record<string, AdPlatformInfo> = {
     id: "tiktok", name: "TikTok Ads", category: "social", icon: "🎵",
     website: "ads.tiktok.com",
     description: "TikTok in-feed, TopView, Branded content",
-    cidrs: ["103.18.16.0/22","162.159.192.0/24","13.224.0.0/14","205.251.192.0/19"],
-    asnKeywords: ["bytedance","tiktok","tiktok pte","beijing bytedance"],
-    uaPatterns: [/bytespider/i,/tiktok/i,/bytedance/i],
-    referrerPatterns: [/tiktok\.com/i,/ads\.tiktok\.com/i],
+    cidrs: [
+      "103.18.16.0/22",   // ByteDance Singapore
+      "106.75.0.0/16",    // ByteDance Beijing
+      "101.226.0.0/15",   // ByteDance China CDN
+      "203.107.1.0/24",   // ByteDance China CDN
+      "13.226.0.0/15",    // AWS CloudFront (TikTok delivery)
+      "54.230.0.0/15",    // AWS CloudFront (TikTok ads)
+      "99.86.0.0/16",     // AWS Global Accelerator (TikTok)
+      "18.160.0.0/15",    // AWS (TikTok ad serving)
+    ],
+    asnKeywords: ["bytedance","tiktok","tiktok pte","beijing bytedance","tiktok information technologies"],
+    uaPatterns: [/bytespider/i,/tiktok/i,/bytedance/i,/musical\.ly/i],
+    referrerPatterns: [/tiktok\.com/i,/ads\.tiktok\.com/i,/musical\.ly/i],
   },
 
   twitter: {
     id: "twitter", name: "Twitter / X Ads", category: "social", icon: "🐦",
     website: "ads.twitter.com",
     description: "Promoted Tweets, X ad campaigns",
-    cidrs: ["199.16.156.0/22","199.59.148.0/22","192.133.76.0/22","69.195.160.0/19","104.244.40.0/21"],
-    asnKeywords: ["twitter","x corp","twitter inc"],
-    uaPatterns: [/twitterbot/i],
-    referrerPatterns: [/twitter\.com/i,/t\.co/i,/ads-twitter\.com/i],
+    cidrs: [
+      "192.133.76.0/22", "199.16.156.0/22", "199.59.148.0/22",
+      "199.96.56.0/21",  "69.195.160.0/19", "104.244.40.0/21",
+      "104.244.42.0/24", "192.133.77.0/24",
+    ],
+    asnKeywords: ["twitter","x corp","twitter inc","twitter international"],
+    uaPatterns: [/twitterbot/i,/\bxbot\b/i],
+    referrerPatterns: [/twitter\.com/i,/x\.com/i,/t\.co/i,/ads-twitter\.com/i],
   },
 
   linkedin: {
     id: "linkedin", name: "LinkedIn Ads", category: "social", icon: "💼",
     website: "business.linkedin.com",
     description: "Sponsored Content, InMail, Lead Gen Forms",
-    cidrs: ["108.174.0.0/16","144.2.0.0/16","216.52.16.0/20","216.52.32.0/20"],
-    asnKeywords: ["linkedin","linkedin corporation"],
-    uaPatterns: [/linkedinbot/i],
-    referrerPatterns: [/linkedin\.com/i,/ads\.linkedin\.com/i],
+    cidrs: [
+      "108.174.0.0/16", "144.2.0.0/16",
+      "216.52.16.0/20", "216.52.32.0/20",
+      "185.63.144.0/22",  // LinkedIn EMEA
+      "13.107.42.0/24",   // LinkedIn (Microsoft-hosted)
+      "40.74.0.0/15",     // LinkedIn Azure
+    ],
+    asnKeywords: ["linkedin","linkedin corporation","linkedin ireland"],
+    uaPatterns: [/linkedinbot/i,/linkedin/i],
+    referrerPatterns: [/linkedin\.com/i,/ads\.linkedin\.com/i,/lnkd\.in/i],
   },
 
   snapchat: {
     id: "snapchat", name: "Snapchat Ads", category: "social", icon: "👻",
     website: "forbusiness.snapchat.com",
     description: "Story Ads, Collection Ads, AR Lenses",
-    cidrs: ["35.190.0.0/17","34.100.0.0/16"],
-    asnKeywords: ["snap inc","snapchat"],
-    uaPatterns: [/snapchat/i],
-    referrerPatterns: [/snapchat\.com/i,/ads\.snapchat\.com/i],
+    cidrs: [
+      "216.52.24.0/21",  // Snap Inc. corporate Santa Monica
+      "64.74.220.0/22",  // Snap corporate
+      "35.190.0.0/17",   // GCP (Snapchat uses GCP)
+      "34.100.0.0/16",   // GCP (Snapchat)
+      "34.96.0.0/14",    // GCP region used by Snap
+    ],
+    asnKeywords: ["snap inc","snapchat","snap group"],
+    uaPatterns: [/snapchat/i,/snap-ads/i],
+    referrerPatterns: [/snapchat\.com/i,/ads\.snapchat\.com/i,/sc-cdn\.net/i],
   },
 
   pinterest: {
     id: "pinterest", name: "Pinterest Ads", category: "social", icon: "📌",
     website: "ads.pinterest.com",
     description: "Promoted Pins, Shopping Ads, Video Pins",
-    cidrs: ["54.236.0.0/16","54.208.0.0/14"],
-    asnKeywords: ["pinterest"],
-    uaPatterns: [/pinterestbot/i],
-    referrerPatterns: [/pinterest\.com/i,/ads\.pinterest\.com/i],
+    cidrs: [
+      "54.236.0.0/16", "54.208.0.0/14",
+      "52.2.0.0/15",    // Pinterest AWS us-east
+      "54.221.0.0/16",  // Pinterest AWS us-east
+      "34.200.0.0/14",  // Pinterest AWS (additional)
+    ],
+    asnKeywords: ["pinterest","pinterest inc"],
+    uaPatterns: [/pinterestbot/i,/pinterest/i],
+    referrerPatterns: [/pinterest\.com/i,/pinterest\.\w+/i,/ads\.pinterest\.com/i,/pin\.it/i],
   },
 
   reddit: {
     id: "reddit", name: "Reddit Ads", category: "social", icon: "🤖",
     website: "ads.reddit.com",
     description: "Promoted Posts, Video Ads, Takeovers",
-    cidrs: ["151.101.0.0/16","198.41.128.0/17"],
-    asnKeywords: ["reddit inc","reddit"],
-    uaPatterns: [/redditbot/i],
-    referrerPatterns: [/reddit\.com/i,/ads\.reddit\.com/i],
+    cidrs: [
+      "151.101.0.0/16",   // Fastly (Reddit's CDN)
+      "151.101.64.0/22",
+      "151.101.128.0/22",
+      "151.101.192.0/22",
+      "198.41.128.0/17",  // Cloudflare (Reddit)
+      "13.59.0.0/16",     // Reddit AWS us-east
+      "34.195.0.0/16",    // Reddit AWS
+    ],
+    asnKeywords: ["reddit inc","reddit","reddit llc"],
+    uaPatterns: [/redditbot/i,/reddit/i],
+    referrerPatterns: [/reddit\.com/i,/ads\.reddit\.com/i,/redd\.it/i],
   },
 
   // ── DISPLAY / PROGRAMMATIC ───────────────────────────────
@@ -718,10 +762,11 @@ export function detectAdPlatform(
     .filter(p => p.category === "ad_verification")
     .map(p => p.id)
 
-  const toCheck = [...new Set([
+  const combined = [
     ...verificationIds,
     ...(selectedPlatforms.length > 0 ? selectedPlatforms.filter(id => AD_PLATFORMS[id]) : [])
-  ])]
+  ]
+  const toCheck = combined.filter((id, idx) => combined.indexOf(id) === idx)
 
   for (const platformId of toCheck) {
     const platform = AD_PLATFORMS[platformId]

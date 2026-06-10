@@ -121,13 +121,9 @@ export class EnhancedBotDetector {
 
   private static isSuspiciousReferrer(referrer: string): boolean {
     const suspiciousPatterns = [
-      /facebook\.com\/tr/,
-      /google\.com\/pagead/,
-      /doubleclick\.net/,
-      /googleadservices\.com/,
-      /googlesyndication\.com/,
+      /^https?:\/\/[^/]*\.onion\//,   // Tor hidden services
+      /^https?:\/\/\d+\.\d+\.\d+\.\d+/,  // Raw IP referrer
     ]
-
     return suspiciousPatterns.some((pattern) => pattern.test(referrer))
   }
 

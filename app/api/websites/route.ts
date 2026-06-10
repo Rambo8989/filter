@@ -10,6 +10,13 @@ function generateCampaignCode(name: string): string {
   return `${slug}-${rand}`
 }
 
+// Ensure page URLs always have a protocol — without it, browsers treat
+// "google.com" as a path on the current domain (e.g. limbun.online/google.com)
+function normalizeUrl(url: string): string {
+  const trimmed = url.trim()
+  return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`
+}
+
 function verifyAuth(request: NextRequest): { userId: string } | null {
   try {
     const token = request.cookies.get("auth-token")?.value
@@ -67,8 +74,8 @@ export async function POST(request: NextRequest) {
       .insert([{
         name,
         domain: domain.replace(/^https?:\/\//, ""),
-        landing_page_url: landingPageUrl,
-        safe_page_url: safePageUrl,
+        landing_page_url: normalizeUrl(landingPageUrl),
+        safe_page_url: normalizeUrl(safePageUrl),
         allowed_countries: Array.isArray(allowedCountries) ? allowedCountries : [],
         blocked_ad_platforms: Array.isArray(blockedAdPlatforms) ? blockedAdPlatforms : [],
         max_visit_limit: maxVisitLimit,
@@ -107,9 +114,9 @@ export async function PUT(request: NextRequest) {
 
     const updateData: any = { updated_at: new Date().toISOString() }
     if (rest.name !== undefined) updateData.name = rest.name
-    if (rest.domain !== undefined) updateData.domain = rest.domain
-    if (rest.landingPageUrl !== undefined) updateData.landing_page_url = rest.landingPageUrl
-    if (rest.safePageUrl !== undefined) updateData.safe_page_url = rest.safePageUrl
+    if (rest.domain !== undefined) updateData.domain = rest.domain.replace(/^https?:\/\//, "")
+    if (rest.landingPageUrl !== undefined) updateData.landing_page_url = normalizeUrl(rest.landingPageUrl)
+    if (rest.safePageUrl !== undefined) updateData.safe_page_url = normalizeUrl(rest.safePageUrl)
     if (rest.allowedCountries !== undefined) updateData.allowed_countries = rest.allowedCountries
     if (rest.blockedAdPlatforms !== undefined) updateData.blocked_ad_platforms = rest.blockedAdPlatforms
     if (rest.maxVisitLimit !== undefined) updateData.max_visit_limit = rest.maxVisitLimit

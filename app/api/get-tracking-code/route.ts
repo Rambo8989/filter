@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
 
     const host   = request.headers.get("host") || "localhost:3000"
     const proto  = request.headers.get("x-forwarded-proto") || "https"
-    const appUrl = `${proto}://${host}`
+    const appUrl = process.env.APP_URL || `${proto}://${host}`
 
     let website: any = null
     if (isSupabaseConfigured()) {

