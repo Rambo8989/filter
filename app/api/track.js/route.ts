@@ -54,6 +54,7 @@ export async function GET(request: NextRequest) {
     const country   =
       request.headers.get("x-vercel-ip-country") ||
       request.headers.get("cf-ipcountry")        ||
+      request.headers.get("x-country")           ||
       "UNKNOWN"
 
     const headers: Record<string, string | null> = {
@@ -71,36 +72,13 @@ export async function GET(request: NextRequest) {
 
     // ── Load campaign by code ─────────────────────────────────
     let website: any = null
-    let dbError: string | null = null
     if (isSupabaseConfigured()) {
-      const { data, error } = await supabaseAdmin
+      const { data } = await supabaseAdmin
         .from("websites")
         .select("*")
         .eq("campaign_code", campaignCode)
         .single()
       website = data
-      dbError = error?.message || null
-    }
-
-    if (searchParams.get("debug") === "htf-debug-2026") {
-      return new Response(JSON.stringify({
-        supabaseConfigured: isSupabaseConfigured(),
-        campaignCode,
-        websiteFound: !!website,
-        dbError,
-        website: website ? {
-          id: website.id,
-          name: website.name,
-          cloaking_enabled: website.cloaking_enabled,
-          is_active: website.is_active,
-          allowed_countries: website.allowed_countries,
-          blocked_ad_platforms: website.blocked_ad_platforms,
-          landing_page_url: website.landing_page_url,
-          safe_page_url: website.safe_page_url,
-        } : null,
-        ip, country, userAgent, headers,
-        allHeaders: Object.fromEntries(request.headers.entries()),
-      }, null, 2), { headers: { "Content-Type": "application/json" } })
     }
 
     if (!website || !website.cloaking_enabled || !website.is_active) {

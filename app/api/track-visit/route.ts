@@ -37,6 +37,7 @@ export async function POST(request: NextRequest) {
     const country =
       request.headers.get("x-vercel-ip-country") ||
       request.headers.get("cf-ipcountry")        ||
+      request.headers.get("x-country")           ||
       clientCountry || "UNKNOWN"
 
     // ── Build full header map ─────────────────────────────────
