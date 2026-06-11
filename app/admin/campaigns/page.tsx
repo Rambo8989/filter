@@ -272,6 +272,8 @@ export default function CampaignsPage() {
 
   const setF = (patch: Partial<FormState>) => setForm(f => ({ ...f, ...patch }))
 
+  const closeForm = () => { setShowForm(false); setForm(defaultForm); setActiveTab("info"); setError(""); setEditingId(null) }
+
   const handleSubmit = async () => {
     const landingUrl = form.landingPages.find(p => p.url.trim())?.url.trim() || ""
     if (!form.name || !form.domain || !landingUrl || !form.safePageUrl) {
@@ -414,18 +416,26 @@ export default function CampaignsPage() {
         )}
       </div>
 
-      {/* Create / Edit Form */}
+      {/* Create / Edit Campaign Modal */}
       {showForm && (
-        <div style={{ background: "white", border: "1px solid #E5E7EB", borderRadius: 12, marginBottom: 28, overflow: "visible", boxShadow: "0 2px 12px rgba(0,0,0,0.06)" }}>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+        <div style={{ background: "white", border: "1px solid #E5E7EB", borderRadius: 14, width: "100%", maxWidth: 1100, maxHeight: "92vh", display: "flex", flexDirection: "column", boxShadow: "0 20px 60px rgba(0,0,0,0.2)", overflow: "hidden" }}>
 
-          {editingId && (
-            <div style={{ padding: "12px 32px", borderBottom: "1px solid #F3F4F6", fontSize: 13, fontWeight: 600, color: "#4F46E5", background: "#F5F3FF", borderRadius: "12px 12px 0 0" }}>
-              Editing Campaign: {form.name || "—"}
+          {/* Modal Header */}
+          <div style={{ padding: "18px 32px", borderBottom: "1px solid #E5E7EB", display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
+            <div>
+              <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: "#1a1a2e" }}>
+                {editingId ? `Edit Campaign: ${form.name || "—"}` : "New Campaign"}
+              </h2>
+              <p style={{ margin: "3px 0 0", fontSize: 12, color: "#6B7280" }}>
+                {editingId ? "Update your campaign settings" : "Set up a new traffic filter campaign"}
+              </p>
             </div>
-          )}
+            <button onClick={closeForm} style={{ background: "#F3F4F6", border: "none", width: 30, height: 30, borderRadius: 6, fontSize: 18, cursor: "pointer", color: "#6B7280", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>×</button>
+          </div>
 
           {/* Tab Bar */}
-          <div style={{ display: "flex", borderBottom: "1px solid #E5E7EB", overflowX: "auto" }}>
+          <div style={{ display: "flex", borderBottom: "1px solid #E5E7EB", overflowX: "auto", flexShrink: 0 }}>
             {TABS.map(tab => (
               <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{
                 padding: "13px 20px", fontSize: 13, fontWeight: activeTab === tab.id ? 600 : 400, cursor: "pointer",
@@ -438,7 +448,7 @@ export default function CampaignsPage() {
           </div>
 
           {/* Tab Content */}
-          <div style={{ padding: "28px 32px" }}>
+          <div style={{ padding: "28px 32px", overflowY: "auto", flex: 1 }}>
 
             {/* ─── TAB 1: Campaign Info ─── */}
             {activeTab === "info" && (
@@ -792,14 +802,14 @@ export default function CampaignsPage() {
           )}
 
           {/* Footer Navigation */}
-          <div style={{ padding: "14px 32px", borderTop: "1px solid #F3F4F6", display: "flex", justifyContent: "space-between", alignItems: "center", background: "#FAFAFA", borderRadius: "0 0 12px 12px" }}>
+          <div style={{ padding: "14px 32px", borderTop: "1px solid #F3F4F6", display: "flex", justifyContent: "space-between", alignItems: "center", background: "#FAFAFA", borderRadius: "0 0 14px 14px", flexShrink: 0 }}>
             <div style={{ display: "flex", gap: 8 }}>
               {tabIndex > 0 && (
                 <button type="button" onClick={() => setActiveTab(TABS[tabIndex - 1].id)} style={footBtn}>
                   ← Previous Tab
                 </button>
               )}
-              <button type="button" onClick={() => { setShowForm(false); setForm(defaultForm); setActiveTab("info"); setError(""); setEditingId(null) }} style={{ ...footBtn, color: "#9CA3AF", borderColor: "#E5E7EB" }}>
+              <button type="button" onClick={closeForm} style={{ ...footBtn, color: "#9CA3AF", borderColor: "#E5E7EB" }}>
                 Cancel
               </button>
             </div>
@@ -816,6 +826,7 @@ export default function CampaignsPage() {
               )}
             </div>
           </div>
+        </div>
         </div>
       )}
 
