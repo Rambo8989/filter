@@ -620,26 +620,27 @@ export default function CampaignsPage() {
             {/* ─── TAB 4: Conditions ─── */}
             {activeTab === "conditions" && (
               <div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-                  <p style={{ margin: 0, fontSize: 13, color: "#6B7280" }}>Select additional campaign-specific conditions or create new ones</p>
-                  <div style={{ position: "relative" }} ref={condMenuRef}>
+                <div ref={condMenuRef}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                    <p style={{ margin: 0, fontSize: 13, color: "#6B7280" }}>Select additional campaign-specific conditions or create new ones</p>
                     <button type="button" onClick={() => setShowConditionMenu(o => !o)}
                       style={{ padding: "8px 16px", background: "#4F46E5", color: "white", border: "none", borderRadius: 7, fontSize: 13, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
-                      + Add condition <span style={{ fontSize: 10 }}>▼</span>
+                      + Add condition <span style={{ fontSize: 10, display: "inline-block", transform: showConditionMenu ? "rotate(180deg)" : "none", transition: "transform 0.15s" }}>▼</span>
                     </button>
-                    {showConditionMenu && (
-                      <div style={{ position: "absolute", right: 0, top: "calc(100% + 6px)", background: "white", border: "1px solid #E5E7EB", borderRadius: 8, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", zIndex: 200, minWidth: 220 }}>
-                        {CONDITION_TYPES.map(ct => (
-                          <button key={ct.id} type="button" onClick={() => addCondition(ct.id)}
-                            style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "10px 16px", background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "#374151", textAlign: "left" }}
-                            onMouseEnter={e => (e.currentTarget.style.background = "#F5F3FF")}
-                            onMouseLeave={e => (e.currentTarget.style.background = "none")}>
-                            <span style={{ fontSize: 16 }}>{ct.icon}</span> {ct.label}
-                          </button>
-                        ))}
-                      </div>
-                    )}
                   </div>
+
+                  {showConditionMenu && (
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))", gap: 8, background: "#FAFAFA", border: "1px solid #E5E7EB", borderRadius: 8, padding: 10, marginBottom: 16 }}>
+                      {CONDITION_TYPES.map(ct => (
+                        <button key={ct.id} type="button" onClick={() => addCondition(ct.id)}
+                          style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "white", border: "1px solid #E5E7EB", borderRadius: 6, cursor: "pointer", fontSize: 13, color: "#374151", textAlign: "left" }}
+                          onMouseEnter={e => { e.currentTarget.style.background = "#F5F3FF"; e.currentTarget.style.borderColor = "#C7D2FE" }}
+                          onMouseLeave={e => { e.currentTarget.style.background = "white"; e.currentTarget.style.borderColor = "#E5E7EB" }}>
+                          <span style={{ fontSize: 16 }}>{ct.icon}</span> {ct.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {form.conditions.length === 0 ? (
