@@ -31,6 +31,7 @@ interface AccessLog {
   organization?: string | null
   asn?: string | null
   language?: string | null
+  campaign_status?: string | null
   created_at: string
 }
 
@@ -49,9 +50,13 @@ const CAMPAIGN_STATE_LABELS: Record<string, { label: string; className: string }
   block_all:     { label: "Block All",     className: "text-red-600" },
 }
 
-function getCampaignState(site: Website | undefined): { label: string; className: string } | null {
-  if (!site) return null
-  const status = site.status || (!site.cloaking_enabled ? "block_all" : !site.is_active ? "paused" : "active")
+// Prefers the campaign status recorded ON the log row at the time of the
+// visit (campaign_status), falling back to the campaign's current status
+// for older rows logged before that column existed
+function getCampaignState(log: AccessLog, site: Website | undefined): { label: string; className: string } | null {
+  const status = log.campaign_status || site?.status ||
+    (site ? (!site.cloaking_enabled ? "block_all" : !site.is_active ? "paused" : "active") : null)
+  if (!status) return null
   return CAMPAIGN_STATE_LABELS[status] || CAMPAIGN_STATE_LABELS.active
 }
 
@@ -368,7 +373,7 @@ export default function LogsPage() {
                   logs.map((log) => {
                     const site = websiteMap.get(log.website_id)
                     const isMoney = log.page_shown === "money"
-                    const campaignState = getCampaignState(site)
+                    const campaignState = getCampaignState(log, site)
                     const tz = getCountryTimezone(log.country)
                     return (
                       <TableRow key={log.id} className={isMoney ? "bg-emerald-50/40" : "bg-red-50/40"}>

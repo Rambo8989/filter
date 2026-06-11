@@ -224,6 +224,7 @@ export async function POST(request: NextRequest) {
       organization:   geoAnalysis && geoAnalysis.org !== "Unknown" ? geoAnalysis.org : null,
       asn:            geoAnalysis?.asn || null,
       language:       parseAcceptLanguage(headers["accept-language"]),
+      campaign_status: campaignStatus,
       created_at:     new Date().toISOString(),
     }
 

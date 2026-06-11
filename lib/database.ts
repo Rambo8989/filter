@@ -37,6 +37,7 @@ export interface AccessLog {
   organization?: string | null
   asn?: string | null
   language?: string | null
+  campaign_status?: string | null
   created_at: string
 }
 

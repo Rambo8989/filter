@@ -33,6 +33,25 @@ const JS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
 }
 
+// Inserts a row into access_logs with shared defaults filled in
+function logVisit(websiteId: number, fields: Record<string, unknown>) {
+  if (!isSupabaseConfigured()) return
+  supabaseAdmin.from("access_logs").insert([{
+    website_id: websiteId,
+    bot_confidence: null,
+    ad_platform: null,
+    region: null,
+    city: null,
+    isp: null,
+    organization: null,
+    asn: null,
+    created_at: new Date().toISOString(),
+    ...fields,
+  }]).then(({ error }: { error: unknown }) => {
+    if (error) console.error("track.js log:", error)
+  })
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
@@ -82,7 +101,35 @@ export async function GET(request: NextRequest) {
       website = data
     }
 
-    if (!website || !website.cloaking_enabled || !website.is_active) {
+    if (!website) {
+      return new Response(safeJs(), { headers: JS_HEADERS })
+    }
+
+    // ── Campaign not active (Paused / Under Review / Block All) ─
+    const campaignStatus: string = website.status ||
+      (!website.cloaking_enabled ? "block_all" : !website.is_active ? "paused" : "active")
+
+    if (campaignStatus !== "active") {
+      const reasonMap: Record<string, string> = {
+        paused: "campaign_paused",
+        under_review: "campaign_under_review",
+        block_all: "campaign_blocked",
+      }
+      logVisit(website.id, {
+        ip_address: ip,
+        country,
+        user_agent: userAgent,
+        page_shown: "safe",
+        is_bot: false,
+        bot_type: null,
+        action_taken: "stay_on_safe",
+        reason: reasonMap[campaignStatus] || "campaign_paused",
+        referrer: referer || null,
+        pathname: referer || "/",
+        language: parseAcceptLanguage(headers["accept-language"]),
+        campaign_status: campaignStatus,
+      })
+      console.log(`[track.js] ⏸ | ${campaignStatus} | ${ip}`)
       return new Response(safeJs(), { headers: JS_HEADERS })
     }
 
@@ -162,32 +209,25 @@ export async function GET(request: NextRequest) {
     }
 
     // ── Log to DB ─────────────────────────────────────────────
-    if (isSupabaseConfigured()) {
-      supabaseAdmin.from("access_logs").insert([{
-        website_id:   website.id,
-        ip_address:   ip,
-        country,
-        user_agent:   userAgent,
-        page_shown:   blocked ? "safe" : "money",
-        is_bot:       blocked,
-        bot_type:     category || null,
-        bot_confidence: null,
-        action_taken: blocked ? "stay_on_safe" : "redirect_money",
-        reason,
-        referrer:     referer || null,
-        pathname:     referer || "/",
-        ad_platform:  null,
-        region:       geoAnalysis && geoAnalysis.region !== "Unknown" ? geoAnalysis.region : null,
-        city:         geoAnalysis && geoAnalysis.city !== "Unknown" ? geoAnalysis.city : null,
-        isp:          geoAnalysis && geoAnalysis.isp !== "Unknown" ? geoAnalysis.isp : null,
-        organization: geoAnalysis && geoAnalysis.org !== "Unknown" ? geoAnalysis.org : null,
-        asn:          geoAnalysis?.asn || null,
-        language:     parseAcceptLanguage(headers["accept-language"]),
-        created_at:   new Date().toISOString(),
-      }]).then(({ error }: { error: unknown }) => {
-        if (error) console.error("track.js log:", error)
-      })
-    }
+    logVisit(website.id, {
+      ip_address:   ip,
+      country,
+      user_agent:   userAgent,
+      page_shown:   blocked ? "safe" : "money",
+      is_bot:       blocked,
+      bot_type:     category || null,
+      action_taken: blocked ? "stay_on_safe" : "redirect_money",
+      reason,
+      referrer:     referer || null,
+      pathname:     referer || "/",
+      region:       geoAnalysis && geoAnalysis.region !== "Unknown" ? geoAnalysis.region : null,
+      city:         geoAnalysis && geoAnalysis.city !== "Unknown" ? geoAnalysis.city : null,
+      isp:          geoAnalysis && geoAnalysis.isp !== "Unknown" ? geoAnalysis.isp : null,
+      organization: geoAnalysis && geoAnalysis.org !== "Unknown" ? geoAnalysis.org : null,
+      asn:          geoAnalysis?.asn || null,
+      language:     parseAcceptLanguage(headers["accept-language"]),
+      campaign_status: "active",
+    })
 
     const tag = blocked
       ? (category === "bot" ? "🤖" : category === "vpn" ? "🔒" : category === "reviewer" ? "👁️" : "🚫")
