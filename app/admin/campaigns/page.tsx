@@ -350,7 +350,19 @@ export default function CampaignsPage() {
   }
 
   const toggleActive = async (w: Website) => {
-    await fetch("/api/websites", { method: "PUT", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ id: w.id, isActive: !w.is_active }) })
+    const current = getStatus(w)
+    const next = current === "active" ? "paused" : "active"
+    await fetch("/api/websites", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({
+        id: w.id,
+        status: next,
+        isActive: next === "active",
+        cloakingEnabled: true,
+      }),
+    })
     fetchWebsites()
   }
 
@@ -1207,22 +1219,35 @@ function MiniCountryDropdown({ selected, onChange }: { selected: string[]; onCha
   )
 }
 
+// ── Campaign status badge (Active / Under Review / Paused / Block All) ──
+const STATUS_META: Record<string, { label: string; bg: string; color: string; dot: string }> = {
+  active:       { label: "Active",       bg: "#D1FAE5", color: "#065F46", dot: "#10B981" },
+  under_review: { label: "Under Review", bg: "#FEF3C7", color: "#92400E", dot: "#F59E0B" },
+  paused:       { label: "Paused",       bg: "#F3F4F6", color: "#6B7280", dot: "#D1D5DB" },
+  block_all:    { label: "Block All",    bg: "#FEE2E2", color: "#991B1B", dot: "#EF4444" },
+}
+
+function getStatus(w: Website): string {
+  return w.status || (!w.cloaking_enabled ? "block_all" : !w.is_active ? "paused" : "active")
+}
+
 // ── Campaign Card ────────────────────────────────────────────
 function CampaignCard({ w, onGetCode, onEdit, onToggle, onDelete }: { w: Website; onGetCode: (id: number, name: string) => void; onEdit: (w: Website) => void; onToggle: (w: Website) => void; onDelete: (id: number) => void }) {
   const [expanded, setExpanded] = useState(false)
+  const status = getStatus(w)
+  const meta = STATUS_META[status] || STATUS_META.active
   return (
     <div style={{ background: "white", border: "1px solid #E5E7EB", borderRadius: 10, overflow: "hidden" }}
       onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.boxShadow = "0 2px 12px rgba(0,0,0,0.07)"}
       onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.boxShadow = "none"}>
       <div style={{ padding: "14px 18px", display: "flex", alignItems: "center", gap: 14 }}>
-        <div style={{ width: 9, height: 9, borderRadius: "50%", background: w.is_active ? "#10B981" : "#D1D5DB", flexShrink: 0 }} />
+        <div style={{ width: 9, height: 9, borderRadius: "50%", background: meta.dot, flexShrink: 0 }} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
             <span style={{ fontSize: 14, fontWeight: 600, color: "#1a1a2e" }}>{w.name}</span>
-            <span style={{ fontSize: 11, padding: "2px 7px", borderRadius: 10, fontWeight: 500, background: w.is_active ? "#D1FAE5" : "#F3F4F6", color: w.is_active ? "#065F46" : "#6B7280" }}>
-              {w.is_active ? "Active" : "Paused"}
+            <span style={{ fontSize: 11, padding: "2px 7px", borderRadius: 10, fontWeight: 500, background: meta.bg, color: meta.color }}>
+              {meta.label}
             </span>
-            {w.cloaking_enabled && <span style={{ fontSize: 11, padding: "2px 7px", borderRadius: 10, background: "#EDE9FE", color: "#4F46E5", fontWeight: 500 }}>Cloaking ON</span>}
           </div>
           <div style={{ fontSize: 12, color: "#6B7280", display: "flex", gap: 14 }}>
             <span>{w.domain}</span>
@@ -1232,7 +1257,7 @@ function CampaignCard({ w, onGetCode, onEdit, onToggle, onDelete }: { w: Website
         <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
           <button onClick={() => onGetCode(w.id, w.name)} style={{ padding: "5px 12px", borderRadius: 6, border: "1px solid #4F46E5", background: "#F5F3FF", fontSize: 12, cursor: "pointer", color: "#4F46E5", fontWeight: 600 }}>Get Code</button>
           <button onClick={() => onEdit(w)} style={{ padding: "5px 12px", borderRadius: 6, border: "1px solid #E5E7EB", background: "white", fontSize: 12, cursor: "pointer", color: "#374151" }}>Edit</button>
-          <button onClick={() => onToggle(w)} style={{ padding: "5px 12px", borderRadius: 6, border: "1px solid #E5E7EB", background: "white", fontSize: 12, cursor: "pointer", color: "#374151" }}>{w.is_active ? "Pause" : "Resume"}</button>
+          <button onClick={() => onToggle(w)} style={{ padding: "5px 12px", borderRadius: 6, border: "1px solid #E5E7EB", background: "white", fontSize: 12, cursor: "pointer", color: "#374151" }}>{status === "active" ? "Pause" : "Resume"}</button>
           <button onClick={() => setExpanded(e => !e)} style={{ padding: "5px 9px", borderRadius: 6, border: "1px solid #E5E7EB", background: "white", fontSize: 12, cursor: "pointer", color: "#6B7280" }}>{expanded ? "▲" : "▼"}</button>
           <button onClick={() => onDelete(w.id)} style={{ padding: "5px 9px", borderRadius: 6, border: "1px solid #FCA5A5", background: "#FEF2F2", fontSize: 12, cursor: "pointer", color: "#EF4444" }}>✕</button>
         </div>
