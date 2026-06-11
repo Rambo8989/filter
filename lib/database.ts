@@ -31,6 +31,12 @@ export interface AccessLog {
   reason?: string | null
   action_taken?: string
   ad_platform?: string | null
+  region?: string | null
+  city?: string | null
+  isp?: string | null
+  organization?: string | null
+  asn?: string | null
+  language?: string | null
   created_at: string
 }
 

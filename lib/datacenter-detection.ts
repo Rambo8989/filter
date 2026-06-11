@@ -12,8 +12,10 @@ export interface IPAnalysis {
   isHosting: boolean
   isTor: boolean
   isHumanReviewer: boolean   // ad platform employee/contractor
+  isMobile: boolean
   provider: string | null
   country: string
+  region: string
   city: string
   isp: string
   org: string
@@ -369,8 +371,8 @@ export async function analyzeIP(ip: string): Promise<IPAnalysis> {
 
   const defaultResult: IPAnalysis = {
     isDatacenter: false, isProxy: false, isVPN: false,
-    isHosting: false, isTor: false, isHumanReviewer: false,
-    provider: null, country: "UNKNOWN", city: "Unknown",
+    isHosting: false, isTor: false, isHumanReviewer: false, isMobile: false,
+    provider: null, country: "UNKNOWN", region: "Unknown", city: "Unknown",
     isp: "Unknown", org: "Unknown", asn: "",
     riskLevel: "low", signals: [],
   }
@@ -411,11 +413,11 @@ export async function analyzeIP(ip: string): Promise<IPAnalysis> {
     const timeout = setTimeout(() => controller.abort(), 4000)
 
     const res = await fetch(
-      `https://pro.ip-api.com/json/${ip}?fields=status,country,countryCode,city,isp,org,as,hosting,proxy,mobile&key=free`,
+      `https://pro.ip-api.com/json/${ip}?fields=status,country,countryCode,regionName,city,isp,org,as,hosting,proxy,mobile&key=free`,
       { signal: controller.signal }
     ).catch(() =>
       fetch(
-        `http://ip-api.com/json/${ip}?fields=status,country,countryCode,city,isp,org,as,hosting,proxy,mobile`,
+        `http://ip-api.com/json/${ip}?fields=status,country,countryCode,regionName,city,isp,org,as,hosting,proxy,mobile`,
         { signal: controller.signal }
       )
     )
@@ -457,8 +459,10 @@ export async function analyzeIP(ip: string): Promise<IPAnalysis> {
 
         const result: IPAnalysis = {
           isDatacenter, isProxy, isVPN, isHosting, isTor, isHumanReviewer,
+          isMobile: !!data.mobile,
           provider: data.org || data.isp || null,
           country: data.countryCode || "UNKNOWN",
+          region: data.regionName || "Unknown",
           city: data.city || "Unknown",
           isp: data.isp || "Unknown",
           org: data.org || "Unknown",

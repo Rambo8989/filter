@@ -8,7 +8,10 @@ import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table"
 import { RefreshCw, Download, Search, ChevronLeft, ChevronRight } from "lucide-react"
-import { parseBrowser, parseOS, parseDeviceType, getReferrerDomain, humanizeReason, formatLogDate } from "@/lib/log-format"
+import {
+  parseBrowser, parseOS, parseDeviceType, getReferrerDomain, humanizeReason, formatLogDate,
+  parseDeviceBrand, parseDeviceModel, getCarrier, getCountryTimezone, getTimezoneOffset,
+} from "@/lib/log-format"
 
 interface AccessLog {
   id: number
@@ -22,6 +25,12 @@ interface AccessLog {
   reason: string | null
   referrer: string | null
   pathname: string | null
+  region?: string | null
+  city?: string | null
+  isp?: string | null
+  organization?: string | null
+  asn?: string | null
+  language?: string | null
   created_at: string
 }
 
@@ -123,23 +132,39 @@ export default function LogsPage() {
       const data = await res.json()
       const rows: AccessLog[] = data.logs || []
 
-      const header = ["Result", "Reason", "Campaign", "Date & Time", "IP Address", "Country", "Browser", "OS", "Device", "Referrer", "Page"]
+      const header = [
+        "Result", "Reason", "Campaign State", "Date & Time", "Url / Filepath", "IP", "Country",
+        "Region (State)", "City", "Organization", "ISP", "Carrier", "User-agent", "Browser", "OS",
+        "Referrer Domain", "Device Type", "Brand", "Model", "Language", "Timezone", "Timezone Offset",
+      ]
       const lines = [header.map(csvCell).join(",")]
 
       rows.forEach((l) => {
         const site = websiteMap.get(l.website_id)
+        const tz = getCountryTimezone(l.country)
         lines.push([
           l.page_shown === "money" ? "Money" : "Safe",
           humanizeReason(l.reason),
           site?.name || `#${l.website_id}`,
           formatLogDate(l.created_at, timezone),
+          l.pathname || "/",
           l.ip_address,
           l.country || "UNKNOWN",
+          l.region || "—",
+          l.city || "—",
+          l.organization || "—",
+          l.isp || "—",
+          getCarrier(l.isp, l.user_agent),
+          l.user_agent || "—",
           parseBrowser(l.user_agent),
           parseOS(l.user_agent),
-          parseDeviceType(l.user_agent),
           getReferrerDomain(l.referrer),
-          l.pathname || "/",
+          parseDeviceType(l.user_agent),
+          parseDeviceBrand(l.user_agent),
+          parseDeviceModel(l.user_agent),
+          l.language || "—",
+          tz || "—",
+          getTimezoneOffset(tz),
         ].map((c) => csvCell(String(c))).join(","))
       })
 
@@ -271,31 +296,43 @@ export default function LogsPage() {
                 <TableRow>
                   <TableHead>Result</TableHead>
                   <TableHead>Reason</TableHead>
-                  <TableHead>Campaign</TableHead>
+                  <TableHead>Campaign State</TableHead>
                   <TableHead className="whitespace-nowrap">Date &amp; Time</TableHead>
-                  <TableHead>IP Address</TableHead>
+                  <TableHead>Url / Filepath</TableHead>
+                  <TableHead>IP</TableHead>
                   <TableHead>Country</TableHead>
+                  <TableHead className="whitespace-nowrap">Region (State)</TableHead>
+                  <TableHead>City</TableHead>
+                  <TableHead>Organization</TableHead>
+                  <TableHead>ISP</TableHead>
+                  <TableHead>Carrier</TableHead>
+                  <TableHead>User-agent</TableHead>
                   <TableHead>Browser</TableHead>
                   <TableHead>OS</TableHead>
-                  <TableHead>Device</TableHead>
-                  <TableHead>Referrer</TableHead>
-                  <TableHead>Page</TableHead>
+                  <TableHead className="whitespace-nowrap">Referrer Domain</TableHead>
+                  <TableHead className="whitespace-nowrap">Device Type</TableHead>
+                  <TableHead>Brand</TableHead>
+                  <TableHead>Model</TableHead>
+                  <TableHead>Language</TableHead>
+                  <TableHead>Timezone</TableHead>
+                  <TableHead className="whitespace-nowrap">Timezone Offset</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={11} className="text-center py-10 text-gray-400">Loading…</TableCell>
+                    <TableCell colSpan={22} className="text-center py-10 text-gray-400">Loading…</TableCell>
                   </TableRow>
                 ) : logs.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={11} className="text-center py-10 text-gray-400">No visits match these filters</TableCell>
+                    <TableCell colSpan={22} className="text-center py-10 text-gray-400">No visits match these filters</TableCell>
                   </TableRow>
                 ) : (
                   logs.map((log) => {
                     const site = websiteMap.get(log.website_id)
                     const isMoney = log.page_shown === "money"
                     const active = site ? site.is_active && site.cloaking_enabled : null
+                    const tz = getCountryTimezone(log.country)
                     return (
                       <TableRow key={log.id} className={isMoney ? "bg-emerald-50/40" : "bg-red-50/40"}>
                         <TableCell>
@@ -313,13 +350,24 @@ export default function LogsPage() {
                           )}
                         </TableCell>
                         <TableCell className="text-sm text-gray-600 whitespace-nowrap">{formatLogDate(log.created_at, timezone)}</TableCell>
+                        <TableCell className="text-sm text-gray-600 max-w-[200px] truncate" title={log.pathname || "/"}>{log.pathname || "/"}</TableCell>
                         <TableCell className="font-mono text-sm">{log.ip_address}</TableCell>
                         <TableCell className="text-sm">{log.country || "UNKNOWN"}</TableCell>
+                        <TableCell className="text-sm">{log.region || "—"}</TableCell>
+                        <TableCell className="text-sm">{log.city || "—"}</TableCell>
+                        <TableCell className="text-sm text-gray-600 max-w-[160px] truncate" title={log.organization || "—"}>{log.organization || "—"}</TableCell>
+                        <TableCell className="text-sm text-gray-600 max-w-[160px] truncate" title={log.isp || "—"}>{log.isp || "—"}</TableCell>
+                        <TableCell className="text-sm text-gray-600 max-w-[140px] truncate" title={getCarrier(log.isp, log.user_agent)}>{getCarrier(log.isp, log.user_agent)}</TableCell>
+                        <TableCell className="text-xs text-gray-500 max-w-[180px] truncate font-mono" title={log.user_agent || "—"}>{log.user_agent || "—"}</TableCell>
                         <TableCell className="text-sm">{parseBrowser(log.user_agent)}</TableCell>
                         <TableCell className="text-sm">{parseOS(log.user_agent)}</TableCell>
-                        <TableCell className="text-sm">{parseDeviceType(log.user_agent)}</TableCell>
                         <TableCell className="text-sm text-gray-600">{getReferrerDomain(log.referrer)}</TableCell>
-                        <TableCell className="text-sm text-gray-600 max-w-[200px] truncate" title={log.pathname || "/"}>{log.pathname || "/"}</TableCell>
+                        <TableCell className="text-sm">{parseDeviceType(log.user_agent)}</TableCell>
+                        <TableCell className="text-sm">{parseDeviceBrand(log.user_agent)}</TableCell>
+                        <TableCell className="text-sm max-w-[120px] truncate" title={parseDeviceModel(log.user_agent)}>{parseDeviceModel(log.user_agent)}</TableCell>
+                        <TableCell className="text-sm">{log.language || "—"}</TableCell>
+                        <TableCell className="text-sm whitespace-nowrap">{tz || "—"}</TableCell>
+                        <TableCell className="text-sm whitespace-nowrap">{getTimezoneOffset(tz)}</TableCell>
                       </TableRow>
                     )
                   })

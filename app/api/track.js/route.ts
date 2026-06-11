@@ -1,8 +1,9 @@
 import { type NextRequest } from "next/server"
 import { supabaseAdmin, isSupabaseConfigured } from "@/lib/supabase"
 import { detectAdvancedBot } from "@/lib/advanced-bot-detection"
-import { isDatacenterOrProxy, detectProxyHeaders } from "@/lib/datacenter-detection"
+import { isDatacenterOrProxy, detectProxyHeaders, type IPAnalysis } from "@/lib/datacenter-detection"
 import { getIPReputation, markIPBlocked, markIPClean, isRepeatOffender } from "@/lib/ip-reputation"
+import { parseAcceptLanguage } from "@/lib/log-format"
 
 // Each visitor gets a different decision based on IP/UA/country — never
 // statically generate or CDN-cache this route
@@ -92,6 +93,7 @@ export async function GET(request: NextRequest) {
     let blocked = false
     let reason   = "qualified_human"
     let category = ""
+    let geoAnalysis: IPAnalysis | null = null
 
     const block = (r: string, cat: string) => { blocked = true; reason = r; category = cat }
 
@@ -124,6 +126,7 @@ export async function GET(request: NextRequest) {
         // Guard 5: Datacenter / VPN / TOR / Reviewer
         if (!blocked) {
           const dcResult = await isDatacenterOrProxy(ip)
+          geoAnalysis = dcResult.analysis
           if (dcResult.blocked) {
             const cat = dcResult.analysis.isTor           ? "tor"
                       : dcResult.analysis.isHumanReviewer ? "reviewer"
@@ -163,6 +166,12 @@ export async function GET(request: NextRequest) {
         referrer:     referer || null,
         pathname:     referer || "/",
         ad_platform:  null,
+        region:       geoAnalysis && geoAnalysis.region !== "Unknown" ? geoAnalysis.region : null,
+        city:         geoAnalysis && geoAnalysis.city !== "Unknown" ? geoAnalysis.city : null,
+        isp:          geoAnalysis && geoAnalysis.isp !== "Unknown" ? geoAnalysis.isp : null,
+        organization: geoAnalysis && geoAnalysis.org !== "Unknown" ? geoAnalysis.org : null,
+        asn:          geoAnalysis?.asn || null,
+        language:     parseAcceptLanguage(headers["accept-language"]),
         created_at:   new Date().toISOString(),
       }]).then(({ error }: { error: unknown }) => {
         if (error) console.error("track.js log:", error)

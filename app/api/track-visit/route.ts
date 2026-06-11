@@ -1,8 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { supabaseAdmin, isSupabaseConfigured } from "@/lib/supabase"
 import { detectAdvancedBot } from "@/lib/advanced-bot-detection"
-import { isDatacenterOrProxy, detectProxyHeaders } from "@/lib/datacenter-detection"
+import { isDatacenterOrProxy, detectProxyHeaders, type IPAnalysis } from "@/lib/datacenter-detection"
 import { detectAdPlatform } from "@/lib/ad-platform-detection"
+import { parseAcceptLanguage } from "@/lib/log-format"
 import {
   getIPReputation,
   markIPBlocked,
@@ -84,6 +85,7 @@ export async function POST(request: NextRequest) {
     let detectedPlatformId: string | null = null
     let isBlockedIP = false
     let blockCategory = ""
+    let geoAnalysis: IPAnalysis | null = null
 
     const stay = (r: string, cat: string) => {
       action = "stay_on_safe"; reason = r; page_shown = "safe"
@@ -132,6 +134,7 @@ export async function POST(request: NextRequest) {
         // ── Guard 5: Datacenter / VPN / TOR / Human reviewer ─
         if (!isBlockedIP) {
           const dcResult = await isDatacenterOrProxy(ip)
+          geoAnalysis = dcResult.analysis
 
           if (dcResult.blocked) {
             const cat = dcResult.analysis.isTor         ? "tor"
@@ -195,6 +198,12 @@ export async function POST(request: NextRequest) {
       referrer:       referrer || null,
       pathname:       url || "/",
       ad_platform:    detectedPlatformId,
+      region:         geoAnalysis && geoAnalysis.region !== "Unknown" ? geoAnalysis.region : null,
+      city:           geoAnalysis && geoAnalysis.city !== "Unknown" ? geoAnalysis.city : null,
+      isp:            geoAnalysis && geoAnalysis.isp !== "Unknown" ? geoAnalysis.isp : null,
+      organization:   geoAnalysis && geoAnalysis.org !== "Unknown" ? geoAnalysis.org : null,
+      asn:            geoAnalysis?.asn || null,
+      language:       parseAcceptLanguage(headers["accept-language"]),
       created_at:     new Date().toISOString(),
     }
 

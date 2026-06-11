@@ -103,3 +103,103 @@ export function formatLogDate(iso: string, timeZone: string): string {
   }
   return d.toLocaleString("en-US", { timeZone, dateStyle: "medium", timeStyle: "medium" })
 }
+
+// Extracts the primary tag from an Accept-Language header
+// (e.g. "en-US,en;q=0.9" -> "en-US")
+export function parseAcceptLanguage(header: string | null | undefined): string | null {
+  if (!header) return null
+  const primary = header.split(",")[0]?.split(";")[0]?.trim()
+  return primary || null
+}
+
+// Best-effort device brand from the user-agent string
+export function parseDeviceBrand(userAgent: string | null | undefined): string {
+  const ua = userAgent || ""
+  if (!ua) return "—"
+  if (/ipad|iphone|ipod|macintosh/i.test(ua)) return "Apple"
+  if (/sm-|samsung|galaxy/i.test(ua))         return "Samsung"
+  if (/pixel/i.test(ua))                      return "Google"
+  if (/redmi|poco|xiaomi|mi\s\d/i.test(ua))   return "Xiaomi"
+  if (/oneplus/i.test(ua))                    return "OnePlus"
+  if (/huawei|honor/i.test(ua))               return "Huawei"
+  if (/oppo|cph\d/i.test(ua))                 return "OPPO"
+  if (/vivo/i.test(ua))                       return "vivo"
+  if (/moto/i.test(ua))                       return "Motorola"
+  if (/\blg-|\blge?\b/i.test(ua))             return "LG"
+  if (/nokia/i.test(ua))                      return "Nokia"
+  if (/realme/i.test(ua))                     return "Realme"
+  if (/windows phone/i.test(ua))              return "Microsoft"
+  if (/windows/i.test(ua))                    return "PC"
+  if (/linux/i.test(ua))                      return "Generic"
+  return "—"
+}
+
+// Best-effort device model from the user-agent string. Reliable for
+// iOS (Apple reports a fixed string); for Android, extracts the model
+// token reported between "Android X;" and the next "Build/" or ")".
+export function parseDeviceModel(userAgent: string | null | undefined): string {
+  const ua = userAgent || ""
+  if (!ua) return "—"
+  if (/ipad/i.test(ua))      return "iPad"
+  if (/iphone/i.test(ua))    return "iPhone"
+  if (/ipod/i.test(ua))      return "iPod Touch"
+  if (/macintosh/i.test(ua)) return "Mac"
+
+  const androidMatch = ua.match(/Android[^;]*;\s*([^);]+?)(?:\s+Build\/[^)]*)?\)/i)
+  if (androidMatch?.[1]) {
+    const model = androidMatch[1].trim()
+    if (model && !/^wv$/i.test(model)) return model
+  }
+
+  if (/windows phone/i.test(ua)) return "Windows Phone"
+  if (/windows|linux/i.test(ua)) return "PC"
+  return "—"
+}
+
+// Carrier is only meaningful for mobile connections — for those, the
+// ISP returned by IP geolocation is usually the mobile carrier name
+export function getCarrier(isp: string | null | undefined, userAgent: string | null | undefined): string {
+  if (!isp) return "—"
+  if (parseDeviceType(userAgent) !== "Mobile") return "—"
+  return isp
+}
+
+// Best-effort country -> primary IANA timezone mapping. Countries that
+// span multiple timezones (US, RU, CA, AU, BR, etc.) map to their most
+// populous/primary zone — treat as approximate.
+const COUNTRY_TIMEZONES: Record<string, string> = {
+  US: "America/New_York", CA: "America/Toronto", MX: "America/Mexico_City",
+  BR: "America/Sao_Paulo", AR: "America/Argentina/Buenos_Aires", CL: "America/Santiago",
+  CO: "America/Bogota", PE: "America/Lima", VE: "America/Caracas",
+  GB: "Europe/London", IE: "Europe/Dublin", FR: "Europe/Paris", DE: "Europe/Berlin",
+  IT: "Europe/Rome", ES: "Europe/Madrid", PT: "Europe/Lisbon", NL: "Europe/Amsterdam",
+  BE: "Europe/Brussels", CH: "Europe/Zurich", AT: "Europe/Vienna", SE: "Europe/Stockholm",
+  NO: "Europe/Oslo", DK: "Europe/Copenhagen", FI: "Europe/Helsinki", PL: "Europe/Warsaw",
+  CZ: "Europe/Prague", GR: "Europe/Athens", RO: "Europe/Bucharest", HU: "Europe/Budapest",
+  RU: "Europe/Moscow", UA: "Europe/Kyiv", TR: "Europe/Istanbul",
+  IL: "Asia/Jerusalem", AE: "Asia/Dubai", SA: "Asia/Riyadh", QA: "Asia/Qatar", KW: "Asia/Kuwait",
+  EG: "Africa/Cairo", ZA: "Africa/Johannesburg", NG: "Africa/Lagos", KE: "Africa/Nairobi",
+  MA: "Africa/Casablanca",
+  IN: "Asia/Kolkata", PK: "Asia/Karachi", BD: "Asia/Dhaka", LK: "Asia/Colombo", NP: "Asia/Kathmandu",
+  JP: "Asia/Tokyo", KR: "Asia/Seoul", CN: "Asia/Shanghai", HK: "Asia/Hong_Kong", TW: "Asia/Taipei",
+  SG: "Asia/Singapore", MY: "Asia/Kuala_Lumpur", TH: "Asia/Bangkok", VN: "Asia/Ho_Chi_Minh",
+  PH: "Asia/Manila", ID: "Asia/Jakarta", KH: "Asia/Phnom_Penh", MM: "Asia/Yangon",
+  AU: "Australia/Sydney", NZ: "Pacific/Auckland",
+}
+
+export function getCountryTimezone(countryCode: string | null | undefined): string | null {
+  if (!countryCode) return null
+  return COUNTRY_TIMEZONES[countryCode.toUpperCase()] || null
+}
+
+// UTC offset for a given IANA timezone (e.g. "UTC+05:30")
+export function getTimezoneOffset(timeZone: string | null, date: Date = new Date()): string {
+  if (!timeZone) return "—"
+  try {
+    const parts = new Intl.DateTimeFormat("en-US", { timeZone, timeZoneName: "shortOffset" }).formatToParts(date)
+    const part = parts.find((p) => p.type === "timeZoneName")
+    return part?.value.replace("GMT", "UTC") || "—"
+  } catch {
+    return "—"
+  }
+}
