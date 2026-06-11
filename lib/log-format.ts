@@ -4,6 +4,21 @@
 // into human-readable labels for the Click Log table.
 // ============================================================
 
+// Non-browser HTTP clients / scripts — these carry no real browser, OS,
+// or device info, so they get their own labels instead of being
+// misreported as "Other"/"Unknown"/"Desktop"
+const SCRIPT_UA_MAP: Array<[RegExp, string]> = [
+  [/^node$|node-fetch|undici/i, "Node.js (Script)"],
+  [/axios/i,                    "Axios (Script)"],
+  [/go-http-client/i,           "Go HTTP Client"],
+  [/okhttp/i,                   "OkHttp (Script)"],
+  [/java\//i,                   "Java (Script)"],
+  [/libwww-perl/i,              "Perl LWP (Script)"],
+  [/apache-httpclient/i,        "Apache HttpClient"],
+  [/scrapy/i,                   "Scrapy (Script)"],
+  [/^php\b|php\//i,             "PHP (Script)"],
+]
+
 export function parseBrowser(userAgent: string | null | undefined): string {
   const ua = userAgent || ""
   if (!ua) return "Unknown"
@@ -21,6 +36,9 @@ export function parseBrowser(userAgent: string | null | undefined): string {
   if (/wget/i.test(ua))                           return "Wget"
   if (/python-requests|python-urllib/i.test(ua))  return "Python"
   if (/postman/i.test(ua))                        return "Postman"
+  for (const [pattern, label] of SCRIPT_UA_MAP) {
+    if (pattern.test(ua)) return label
+  }
   if (/bot|crawler|spider|slurp|facebookexternalhit/i.test(ua)) return "Bot"
   return "Other"
 }
@@ -38,6 +56,10 @@ export function parseOS(userAgent: string | null | undefined): string {
   if (/mac os x/i.test(ua))        return "macOS"
   if (/cros/i.test(ua))            return "ChromeOS"
   if (/linux/i.test(ua))           return "Linux"
+  if (/curl\/|wget|python-|postman/i.test(ua)) return "—"
+  for (const [pattern] of SCRIPT_UA_MAP) {
+    if (pattern.test(ua)) return "—"
+  }
   return "Unknown"
 }
 
@@ -45,6 +67,10 @@ export function parseDeviceType(userAgent: string | null | undefined): string {
   const ua = userAgent || ""
   if (!ua) return "Unknown"
   if (/bot|crawler|spider/i.test(ua))      return "Bot"
+  if (/curl\/|wget|python-|postman/i.test(ua)) return "Bot"
+  for (const [pattern] of SCRIPT_UA_MAP) {
+    if (pattern.test(ua)) return "Bot"
+  }
   if (/ipad|tablet|kindle|playbook|silk/i.test(ua)) return "Tablet"
   if (/mobile|iphone|ipod|windows phone/i.test(ua)) return "Mobile"
   if (/android/i.test(ua))                 return "Tablet"
