@@ -504,6 +504,18 @@ function getRiskLevel(
   return "low"
 }
 
+export type BlockCategory = "tor" | "reviewer" | "vpn" | "proxy" | "datacenter"
+
+// Maps an IP analysis to the same category buckets used for IP-reputation
+// caching and the Click Log "Reason" column
+export function categorizeAnalysis(analysis: IPAnalysis): BlockCategory {
+  if (analysis.isTor) return "tor"
+  if (analysis.isHumanReviewer) return "reviewer"
+  if (analysis.isVPN) return "vpn"
+  if (analysis.isProxy) return "proxy"
+  return "datacenter"
+}
+
 // ── Wrapper used in track-visit route ────────────────────────
 export async function isDatacenterOrProxy(ip: string): Promise<{
   blocked: boolean

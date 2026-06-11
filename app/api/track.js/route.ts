@@ -1,7 +1,7 @@
 import { type NextRequest } from "next/server"
 import { supabaseAdmin, isSupabaseConfigured } from "@/lib/supabase"
 import { detectAdvancedBot } from "@/lib/advanced-bot-detection"
-import { isDatacenterOrProxy, detectProxyHeaders, type IPAnalysis } from "@/lib/datacenter-detection"
+import { isDatacenterOrProxy, detectProxyHeaders, categorizeAnalysis, type IPAnalysis } from "@/lib/datacenter-detection"
 import { getIPReputation, markIPBlocked, markIPClean, isRepeatOffender } from "@/lib/ip-reputation"
 import { parseAcceptLanguage } from "@/lib/log-format"
 
@@ -118,8 +118,23 @@ export async function GET(request: NextRequest) {
         if (!blocked) {
           const botResult = detectAdvancedBot(userAgent, headers, ip)
           if (botResult.isBot) {
-            markIPBlocked(ip, `bot:${botResult.botType || "unknown"}`, "bot")
-            block(`bot:${botResult.botType || "unknown"}`, "bot")
+            let blockReason = `bot:${botResult.botType || "unknown"}`
+            let blockCategory = "bot"
+
+            // "Possible Bot" is a borderline UA/header signal — confirm
+            // against IP reputation so a datacenter/VPN IP is reported
+            // as such instead of a vague "Possible Bot"
+            if (botResult.botType === "Possible Bot") {
+              const dcResult = await isDatacenterOrProxy(ip)
+              geoAnalysis = dcResult.analysis
+              if (dcResult.blocked) {
+                blockCategory = categorizeAnalysis(dcResult.analysis)
+                blockReason = dcResult.reason
+              }
+            }
+
+            markIPBlocked(ip, blockReason, blockCategory as any)
+            block(blockReason, blockCategory)
           }
         }
 
@@ -128,11 +143,7 @@ export async function GET(request: NextRequest) {
           const dcResult = await isDatacenterOrProxy(ip)
           geoAnalysis = dcResult.analysis
           if (dcResult.blocked) {
-            const cat = dcResult.analysis.isTor           ? "tor"
-                      : dcResult.analysis.isHumanReviewer ? "reviewer"
-                      : dcResult.analysis.isVPN           ? "vpn"
-                      : dcResult.analysis.isProxy         ? "proxy"
-                      : "datacenter"
+            const cat = categorizeAnalysis(dcResult.analysis)
             markIPBlocked(ip, dcResult.reason, cat as any)
             block(dcResult.reason, cat)
           }

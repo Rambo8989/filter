@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { supabaseAdmin, isSupabaseConfigured } from "@/lib/supabase"
 import { detectAdvancedBot } from "@/lib/advanced-bot-detection"
-import { isDatacenterOrProxy, detectProxyHeaders, type IPAnalysis } from "@/lib/datacenter-detection"
+import { isDatacenterOrProxy, detectProxyHeaders, categorizeAnalysis, type IPAnalysis } from "@/lib/datacenter-detection"
 import { detectAdPlatform } from "@/lib/ad-platform-detection"
 import { parseAcceptLanguage } from "@/lib/log-format"
 import {
@@ -120,13 +120,29 @@ export async function POST(request: NextRequest) {
           const botType = clientBotDetection?.botType || serverBot.botType
 
           if (isBot) {
-            markIPBlocked(ip, `bot:${botType || "unknown"}`, "bot")
+            let blockReason = `bot:${botType || "unknown"}`
+            let blockCategory = "bot"
+
+            // "Possible Bot" is a borderline UA/header signal — confirm
+            // against IP reputation so a datacenter/VPN IP is reported
+            // as such instead of a vague "Possible Bot"
+            if (!clientBotDetection?.isBot && serverBot.botType === "Possible Bot") {
+              const dcResult = await isDatacenterOrProxy(ip)
+              geoAnalysis = dcResult.analysis
+              if (dcResult.blocked) {
+                blockCategory = categorizeAnalysis(dcResult.analysis)
+                blockReason = dcResult.reason
+              }
+            }
+
+            markIPBlocked(ip, blockReason, blockCategory as any)
             const adCheck = detectAdPlatform(ip, userAgent, referrer, selectedPlatforms)
             if (adCheck.detected) {
               detectedPlatformId = adCheck.platformId
-              stay(`ad_platform_bot:${adCheck.platformId}`, "bot")
+              const prefix = blockCategory === "bot" ? "ad_platform_bot" : "ad_platform_ip"
+              stay(`${prefix}:${adCheck.platformId}`, blockCategory)
             } else {
-              stay(`bot:${botType || "unknown"}`, "bot")
+              stay(blockReason, blockCategory)
             }
           }
         }
@@ -137,11 +153,7 @@ export async function POST(request: NextRequest) {
           geoAnalysis = dcResult.analysis
 
           if (dcResult.blocked) {
-            const cat = dcResult.analysis.isTor         ? "tor"
-                      : dcResult.analysis.isHumanReviewer ? "reviewer"
-                      : dcResult.analysis.isVPN          ? "vpn"
-                      : dcResult.analysis.isProxy        ? "proxy"
-                      : "datacenter"
+            const cat = categorizeAnalysis(dcResult.analysis)
 
             markIPBlocked(ip, dcResult.reason, cat as any)
 
