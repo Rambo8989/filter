@@ -413,13 +413,8 @@ export async function analyzeIP(ip: string): Promise<IPAnalysis> {
     const timeout = setTimeout(() => controller.abort(), 4000)
 
     const res = await fetch(
-      `https://pro.ip-api.com/json/${ip}?fields=status,country,countryCode,regionName,city,isp,org,as,hosting,proxy,mobile&key=free`,
+      `http://ip-api.com/json/${ip}?fields=status,country,countryCode,regionName,city,isp,org,as,hosting,proxy,mobile`,
       { signal: controller.signal }
-    ).catch(() =>
-      fetch(
-        `http://ip-api.com/json/${ip}?fields=status,country,countryCode,regionName,city,isp,org,as,hosting,proxy,mobile`,
-        { signal: controller.signal }
-      )
     )
     clearTimeout(timeout)
 
