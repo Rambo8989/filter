@@ -92,9 +92,17 @@ export async function POST(request: NextRequest) {
       isBlockedIP = true; blockCategory = cat
     }
 
-    // ── Guard 0: Campaign paused ──────────────────────────────
-    if (!config.cloaking_enabled) {
-      action = "stay_on_safe"; reason = "campaign_paused"; page_shown = "safe"
+    // ── Guard 0: Campaign not active (Paused / Under Review / Block All) ─
+    const campaignStatus: string = config.status ||
+      (!config.cloaking_enabled ? "block_all" : config.is_active === false ? "paused" : "active")
+
+    if (campaignStatus !== "active") {
+      const reasonMap: Record<string, string> = {
+        paused: "campaign_paused",
+        under_review: "campaign_under_review",
+        block_all: "campaign_blocked",
+      }
+      action = "stay_on_safe"; reason = reasonMap[campaignStatus] || "campaign_paused"; page_shown = "safe"
 
     // ── Guard 1: Repeat offender cache hit (instant, no API) ─
     } else if (isRepeatOffender(ip)) {

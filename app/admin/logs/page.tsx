@@ -39,6 +39,20 @@ interface Website {
   name: string
   is_active: boolean
   cloaking_enabled: boolean
+  status?: "active" | "paused" | "block_all" | "under_review"
+}
+
+const CAMPAIGN_STATE_LABELS: Record<string, { label: string; className: string }> = {
+  active:        { label: "Active",        className: "text-emerald-600" },
+  under_review:  { label: "Under Review",  className: "text-amber-600" },
+  paused:        { label: "Paused",        className: "text-gray-400" },
+  block_all:     { label: "Block All",     className: "text-red-600" },
+}
+
+function getCampaignState(site: Website | undefined): { label: string; className: string } | null {
+  if (!site) return null
+  const status = site.status || (!site.cloaking_enabled ? "block_all" : !site.is_active ? "paused" : "active")
+  return CAMPAIGN_STATE_LABELS[status] || CAMPAIGN_STATE_LABELS.active
 }
 
 const PAGE_SIZE_OPTIONS = [25, 50, 100, 200]
@@ -354,7 +368,7 @@ export default function LogsPage() {
                   logs.map((log) => {
                     const site = websiteMap.get(log.website_id)
                     const isMoney = log.page_shown === "money"
-                    const active = site ? site.is_active && site.cloaking_enabled : null
+                    const campaignState = getCampaignState(site)
                     const tz = getCountryTimezone(log.country)
                     return (
                       <TableRow key={log.id} className={isMoney ? "bg-emerald-50/40" : "bg-red-50/40"}>
@@ -366,9 +380,9 @@ export default function LogsPage() {
                         <TableCell className="text-sm text-gray-600 whitespace-nowrap">{humanizeReason(log.reason)}</TableCell>
                         <TableCell className="text-sm">
                           <div className="font-medium text-gray-800">{site?.name || `#${log.website_id}`}</div>
-                          {active !== null && (
-                            <span className={`text-xs ${active ? "text-emerald-600" : "text-gray-400"}`}>
-                              {active ? "Active" : "Paused"}
+                          {campaignState && (
+                            <span className={`text-xs ${campaignState.className}`}>
+                              {campaignState.label}
                             </span>
                           )}
                         </TableCell>

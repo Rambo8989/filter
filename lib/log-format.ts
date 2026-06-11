@@ -95,6 +95,8 @@ export function humanizeReason(reason: string | null | undefined): string {
   const knownReasons: Record<string, string> = {
     qualified_human:          "No Reason",
     campaign_paused:          "Campaign Paused",
+    campaign_under_review:    "Under Review",
+    campaign_blocked:         "Block All",
     blocked_country:          "Geo Blocked",
     repeat_offender:          "Repeat Offender",
     proxy_headers_detected:   "Proxy Headers",

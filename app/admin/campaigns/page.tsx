@@ -11,6 +11,7 @@ interface Website {
   campaign_code: string
   is_active: boolean
   cloaking_enabled: boolean
+  status?: "active" | "paused" | "block_all" | "under_review"
   allowed_countries: string[]
   blocked_ad_platforms: string[]
   max_visit_limit?: number
@@ -301,7 +302,9 @@ export default function CampaignsPage() {
         maxVisitLimit: form.frequencyCapEnabled ? form.maxVisitLimit : 999,
         visitLimitTimeHours: form.visitLimitTimeHours,
         cloakingEnabled: form.status !== "block_all",
-        isActive: form.status === "active" || form.status === "under_review",
+        // "Under Review" behaves like "Paused" — visitors always see the safe page
+        isActive: form.status === "active",
+        status: form.status,
       }
       if (editingId) payload.id = editingId
 
@@ -362,7 +365,7 @@ export default function CampaignsPage() {
       domain: w.domain,
       safePageUrl: w.safe_page_url,
       landingPages: [{ url: w.landing_page_url, weight: 10, enabled: true, description: "" }],
-      status: !w.cloaking_enabled ? "block_all" : !w.is_active ? "paused" : "active",
+      status: w.status || (!w.cloaking_enabled ? "block_all" : !w.is_active ? "paused" : "active"),
       conditions: allowedCountries.length > 0
         ? [{ uid: "country", type: "country", mode: "allow", values: allowedCountries, textValue: "", fromHour: 9, toHour: 18 }]
         : [],
@@ -472,7 +475,7 @@ export default function CampaignsPage() {
                   <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 4 }}>
                     {([
                       { value: "active", icon: "▶", label: "Active", desc: "Cloaking ON — bots go to safe page, real visitors to money page" },
-                      { value: "under_review", icon: "⚙", label: "Under Review", desc: "Campaign is being reviewed — same behavior as Active" },
+                      { value: "under_review", icon: "⚙", label: "Under Review", desc: "Campaign is being reviewed — visitors see the safe page (same behavior as Paused)" },
                       { value: "paused", icon: "⏸", label: "Paused", desc: "All visitors see the safe page" },
                       { value: "block_all", icon: "⛔", label: "Block All", desc: "All traffic is blocked — no one reaches the money page" },
                     ] as const).map(opt => (

@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
       name, domain, landingPageUrl, safePageUrl,
       allowedCountries = [], blockedAdPlatforms = [],
       maxVisitLimit = 10, visitLimitTimeHours = 24,
-      isActive = true, cloakingEnabled = true,
+      isActive = true, cloakingEnabled = true, status = "active",
     } = body
 
     if (!name || !domain || !landingPageUrl || !safePageUrl) {
@@ -69,25 +69,30 @@ export async function POST(request: NextRequest) {
 
     const campaignCode = generateCampaignCode(name)
 
-    const { data, error } = await supabaseAdmin
-      .from("websites")
-      .insert([{
-        name,
-        domain: domain.replace(/^https?:\/\//, ""),
-        landing_page_url: normalizeUrl(landingPageUrl),
-        safe_page_url: normalizeUrl(safePageUrl),
-        allowed_countries: Array.isArray(allowedCountries) ? allowedCountries : [],
-        blocked_ad_platforms: Array.isArray(blockedAdPlatforms) ? blockedAdPlatforms : [],
-        max_visit_limit: maxVisitLimit,
-        visit_limit_time_hours: visitLimitTimeHours,
-        is_active: isActive,
-        cloaking_enabled: cloakingEnabled,
-        campaign_code: campaignCode,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      }])
-      .select()
-      .single()
+    const insertPayload: Record<string, unknown> = {
+      name,
+      domain: domain.replace(/^https?:\/\//, ""),
+      landing_page_url: normalizeUrl(landingPageUrl),
+      safe_page_url: normalizeUrl(safePageUrl),
+      allowed_countries: Array.isArray(allowedCountries) ? allowedCountries : [],
+      blocked_ad_platforms: Array.isArray(blockedAdPlatforms) ? blockedAdPlatforms : [],
+      max_visit_limit: maxVisitLimit,
+      visit_limit_time_hours: visitLimitTimeHours,
+      is_active: isActive,
+      cloaking_enabled: cloakingEnabled,
+      status,
+      campaign_code: campaignCode,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }
+
+    let { data, error } = await supabaseAdmin.from("websites").insert([insertPayload]).select().single()
+
+    // `status` column may not exist yet (migration not run) — retry without it
+    if (error?.code === "42703") {
+      const { status: _status, ...withoutStatus } = insertPayload
+      ;({ data, error } = await supabaseAdmin.from("websites").insert([withoutStatus]).select().single())
+    }
 
     if (error) return NextResponse.json({ success: false, error: error.message }, { status: 500 })
     return NextResponse.json({ success: true, data })
@@ -123,13 +128,15 @@ export async function PUT(request: NextRequest) {
     if (rest.visitLimitTimeHours !== undefined) updateData.visit_limit_time_hours = rest.visitLimitTimeHours
     if (rest.isActive !== undefined) updateData.is_active = rest.isActive
     if (rest.cloakingEnabled !== undefined) updateData.cloaking_enabled = rest.cloakingEnabled
+    if (rest.status !== undefined) updateData.status = rest.status
 
-    const { data, error } = await supabaseAdmin
-      .from("websites")
-      .update(updateData)
-      .eq("id", id)
-      .select()
-      .single()
+    let { data, error } = await supabaseAdmin.from("websites").update(updateData).eq("id", id).select().single()
+
+    // `status` column may not exist yet (migration not run) — retry without it
+    if (error?.code === "42703" && "status" in updateData) {
+      const { status: _status, ...withoutStatus } = updateData
+      ;({ data, error } = await supabaseAdmin.from("websites").update(withoutStatus).eq("id", id).select().single())
+    }
 
     if (error) return NextResponse.json({ success: false, error: error.message }, { status: 500 })
     return NextResponse.json({ success: true, data })
