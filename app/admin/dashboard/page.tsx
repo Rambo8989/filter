@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { AlertTriangle, RefreshCw, Users, Bot } from "lucide-react"
@@ -438,8 +439,11 @@ export default function AdminDashboard() {
 
       {/* Recent Activity */}
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0">
           <CardTitle>Recent Activity</CardTitle>
+          <Link href="/admin/logs" className="text-sm font-medium text-indigo-600 hover:text-indigo-700">
+            View full click log →
+          </Link>
         </CardHeader>
         <CardContent>
           {logs.length > 0 ? (

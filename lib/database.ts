@@ -28,7 +28,19 @@ export interface AccessLog {
   bot_confidence?: number
   referrer?: string
   pathname: string
+  reason?: string | null
+  action_taken?: string
+  ad_platform?: string | null
   created_at: string
+}
+
+export interface AccessLogQuery {
+  websiteId?: number
+  search?: string
+  range?: "24h" | "7d" | "30d" | "all"
+  result?: "money" | "safe" | "all"
+  page?: number
+  pageSize?: number
 }
 
 export class DatabaseService {
@@ -173,6 +185,62 @@ export class DatabaseService {
     } catch (error) {
       console.error("Error in getAccessLogs:", error)
       return []
+    }
+  }
+
+  static async getAccessLogsFiltered(opts: AccessLogQuery): Promise<{ logs: AccessLog[]; total: number }> {
+    if (!isSupabaseConfigured() || !supabaseAdmin) {
+      return { logs: [], total: 0 }
+    }
+
+    const page = Math.max(1, opts.page || 1)
+    const pageSize = Math.min(200, Math.max(1, opts.pageSize || 50))
+    const from = (page - 1) * pageSize
+    const to = from + pageSize - 1
+
+    try {
+      let query = supabaseAdmin
+        .from("access_logs")
+        .select("*", { count: "exact" })
+        .order("created_at", { ascending: false })
+
+      if (opts.websiteId) {
+        query = query.eq("website_id", opts.websiteId)
+      }
+
+      if (opts.result === "money" || opts.result === "safe") {
+        query = query.eq("page_shown", opts.result)
+      }
+
+      if (opts.range && opts.range !== "all") {
+        const rangeMs: Record<string, number> = {
+          "24h": 24 * 60 * 60 * 1000,
+          "7d": 7 * 24 * 60 * 60 * 1000,
+          "30d": 30 * 24 * 60 * 60 * 1000,
+        }
+        query = query.gte("created_at", new Date(Date.now() - rangeMs[opts.range]).toISOString())
+      }
+
+      if (opts.search) {
+        // Strip characters that would break the PostgREST .or() filter syntax
+        const term = opts.search.replace(/[^a-zA-Z0-9 ._:/-]/g, "").trim()
+        if (term) {
+          const cols = ["ip_address", "reason", "referrer", "pathname", "country", "bot_type"]
+          query = query.or(cols.map(c => `${c}.ilike.%${term}%`).join(","))
+        }
+      }
+
+      const { data, error, count } = await query.range(from, to)
+
+      if (error) {
+        console.error("Error fetching filtered access logs:", error)
+        return { logs: [], total: 0 }
+      }
+
+      return { logs: data || [], total: count || 0 }
+    } catch (error) {
+      console.error("Error in getAccessLogsFiltered:", error)
+      return { logs: [], total: 0 }
     }
   }
 

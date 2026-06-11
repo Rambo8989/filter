@@ -5,8 +5,28 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     const websiteId = searchParams.get("websiteId")
-    const limit = Number.parseInt(searchParams.get("limit") || "100")
 
+    // Paginated / filtered click-log query (used by the Logs page)
+    const page = searchParams.get("page")
+    const pageSize = searchParams.get("pageSize")
+    const search = searchParams.get("search")
+    const range = searchParams.get("range") as "24h" | "7d" | "30d" | "all" | null
+    const result = searchParams.get("result") as "money" | "safe" | "all" | null
+
+    if (page || pageSize || search || range || result) {
+      const data = await DatabaseService.getAccessLogsFiltered({
+        websiteId: websiteId ? Number(websiteId) : undefined,
+        search: search || undefined,
+        range: range || "all",
+        result: result || "all",
+        page: page ? Number(page) : 1,
+        pageSize: pageSize ? Number(pageSize) : 50,
+      })
+      return NextResponse.json(data)
+    }
+
+    // Legacy: plain array of recent logs (used by the dashboard overview)
+    const limit = Number.parseInt(searchParams.get("limit") || "100")
     const logs = await DatabaseService.getAccessLogs(websiteId || undefined, limit)
 
     return NextResponse.json(logs)
