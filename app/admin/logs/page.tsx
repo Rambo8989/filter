@@ -50,12 +50,35 @@ const RANGE_OPTIONS = [
   { value: "all", label: "All Time" },
 ]
 
+// Fallback for environments without Intl.supportedValuesOf
+const FALLBACK_TIMEZONES = [
+  "UTC", "Asia/Kolkata", "Asia/Karachi", "Asia/Dhaka", "Asia/Dubai", "Asia/Singapore",
+  "Asia/Hong_Kong", "Asia/Tokyo", "Asia/Shanghai", "Asia/Bangkok", "Asia/Manila",
+  "Asia/Jakarta", "Asia/Kuala_Lumpur", "Asia/Seoul", "Europe/London", "Europe/Paris",
+  "Europe/Berlin", "Europe/Madrid", "Europe/Rome", "Europe/Moscow", "Europe/Istanbul",
+  "Africa/Cairo", "Africa/Johannesburg", "Africa/Lagos", "America/New_York",
+  "America/Chicago", "America/Denver", "America/Los_Angeles", "America/Sao_Paulo",
+  "America/Mexico_City", "America/Bogota", "Australia/Sydney", "Pacific/Auckland",
+]
+
+function getAllTimezones(): string[] {
+  try {
+    const supportedValuesOf = (Intl as any).supportedValuesOf
+    if (typeof supportedValuesOf === "function") {
+      const zones: string[] = supportedValuesOf("timeZone")
+      if (zones?.length) return zones
+    }
+  } catch {}
+  return FALLBACK_TIMEZONES
+}
+
 const TZ_OPTIONS = [
   { value: "browser", label: "Local Time" },
-  { value: "Asia/Kolkata", label: "India (IST)" },
   { value: "UTC", label: "UTC" },
-  { value: "America/New_York", label: "US Eastern" },
-  { value: "America/Los_Angeles", label: "US Pacific" },
+  ...getAllTimezones()
+    .filter((tz) => tz !== "UTC")
+    .sort()
+    .map((tz) => ({ value: tz, label: `${tz} (${getTimezoneOffset(tz)})` })),
 ]
 
 function csvCell(value: string): string {
