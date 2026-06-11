@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { AlertTriangle, RefreshCw, Users, Bot } from "lucide-react"
 
@@ -38,7 +38,7 @@ interface Analytics {
   countries: Record<string, number>
   bot_types: Record<string, number>
   hourly: Array<{
-    hour: number
+    label: string
     total: number
     bots: number
     humans: number
@@ -103,7 +103,7 @@ export default function AdminDashboard() {
       const controller = new AbortController()
       const timeout = setTimeout(() => controller.abort(), 8000)
 
-      const response = await fetch("/api/access-logs?limit=100", { signal: controller.signal })
+      const response = await fetch("/api/access-logs?limit=500", { signal: controller.signal })
         .catch(() => { throw new Error("Database connection timeout — check Supabase project is active") })
       clearTimeout(timeout)
 
@@ -121,18 +121,30 @@ export default function AdminDashboard() {
 
       const countries: Record<string, number> = {}
       const bot_types: Record<string, number> = {}
-      const hourlyMap: Record<number, { total: number; bots: number; humans: number }> = {}
+
+      // 24 fixed buckets covering the rolling last 24 hours, oldest → newest
+      const HOUR_MS = 60 * 60 * 1000
+      const now = Date.now()
+      const hourly: Array<{ label: string; total: number; bots: number; humans: number }> =
+        Array.from({ length: 24 }, (_, i) => {
+          const bucketStart = new Date(now - (23 - i) * HOUR_MS)
+          const h = bucketStart.getHours()
+          const period = h >= 12 ? "PM" : "AM"
+          const h12 = h % 12 === 0 ? 12 : h % 12
+          return { label: `${h12} ${period}`, total: 0, bots: 0, humans: 0 }
+        })
 
       logs.forEach(l => {
         if (l.country) countries[l.country] = (countries[l.country] || 0) + 1
         if (l.is_bot && l.bot_type) bot_types[l.bot_type] = (bot_types[l.bot_type] || 0) + 1
-        const hour = new Date(l.created_at).getHours()
-        if (!hourlyMap[hour]) hourlyMap[hour] = { total: 0, bots: 0, humans: 0 }
-        hourlyMap[hour].total++
-        l.is_bot ? hourlyMap[hour].bots++ : hourlyMap[hour].humans++
-      })
 
-      const hourly = Object.entries(hourlyMap).map(([hour, d]) => ({ hour: Number(hour), ...d }))
+        const ageHours = Math.floor((now - new Date(l.created_at).getTime()) / HOUR_MS)
+        if (ageHours >= 0 && ageHours < 24) {
+          const bucket = hourly[23 - ageHours]
+          bucket.total++
+          l.is_bot ? bucket.bots++ : bucket.humans++
+        }
+      })
 
       setData({
         success: true,
@@ -187,6 +199,10 @@ export default function AdminDashboard() {
   const topBotTypes = Object.entries(analytics.bot_types)
     .sort(([, a], [, b]) => b - a)
     .slice(0, 5)
+
+  // Hourly chart helpers
+  const hourlyTotal = analytics.hourly.reduce((sum, h) => sum + h.total, 0)
+  const maxHourlyVisits = Math.max(...analytics.hourly.map((h) => h.total), 1)
 
   return (
     <div className="space-y-6">
@@ -343,36 +359,79 @@ export default function AdminDashboard() {
 
       {/* Hourly Traffic Chart */}
       <Card>
-        <CardHeader>
-          <CardTitle>Hourly Traffic (Last 24 Hours)</CardTitle>
+        <CardHeader className="flex flex-row items-start justify-between space-y-0">
+          <div>
+            <CardTitle>Hourly Traffic</CardTitle>
+            <CardDescription>Visits per hour over the last 24 hours</CardDescription>
+          </div>
+          <div className="flex items-center gap-4 text-xs text-gray-500">
+            <span className="flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-sm bg-emerald-500" /> Human
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-sm bg-red-400" /> Bot
+            </span>
+          </div>
         </CardHeader>
         <CardContent>
-          {analytics.hourly.length > 0 ? (
-            <div className="space-y-2">
-              {analytics.hourly.slice(-12).map((hourData, index) => {
-                const maxVisits = Math.max(...analytics.hourly.map((h) => h.total), 1)
-                return (
-                  <div key={index} className="flex items-center space-x-3">
-                    <div className="w-12 text-sm font-mono">{hourData.hour.toString().padStart(2, "0")}:00</div>
-                    <div className="flex-1">
-                      <div className="w-full bg-gray-200 rounded-full h-3">
-                        <div
-                          className="bg-blue-500 h-3 rounded-full transition-all duration-300"
-                          style={{ width: `${(hourData.total / maxVisits) * 100}%` }}
-                        />
-                      </div>
-                    </div>
-                    <div className="text-sm space-x-2">
-                      <span className="text-green-600">👥 {hourData.humans}</span>
-                      <span className="text-red-600">🤖 {hourData.bots}</span>
-                      <span className="font-medium">Total: {hourData.total}</span>
-                    </div>
+          {hourlyTotal > 0 ? (
+            <div className="flex gap-3">
+              {/* Y-axis scale */}
+              <div className="flex flex-col justify-between h-48 pb-5 text-xs text-gray-400 text-right">
+                <span>{maxHourlyVisits}</span>
+                <span>{Math.round(maxHourlyVisits * 0.75)}</span>
+                <span>{Math.round(maxHourlyVisits * 0.5)}</span>
+                <span>{Math.round(maxHourlyVisits * 0.25)}</span>
+                <span>0</span>
+              </div>
+
+              <div className="flex-1 min-w-0">
+                {/* Plot area with gridlines */}
+                <div className="relative h-48 border-b border-gray-200">
+                  <div className="absolute inset-0 flex flex-col justify-between">
+                    {[0, 1, 2, 3, 4].map((i) => (
+                      <div key={i} className="border-t border-gray-100 w-full" />
+                    ))}
                   </div>
-                )
-              })}
+                  <div className="absolute inset-0 flex items-end gap-[3px]">
+                    {analytics.hourly.map((h, i) => (
+                      <div
+                        key={i}
+                        className="group relative flex-1 h-full flex flex-col justify-end min-w-0"
+                        title={`${h.label}: ${h.total} visit${h.total === 1 ? "" : "s"} (${h.humans} human, ${h.bots} bot)`}
+                      >
+                        {h.bots > 0 && (
+                          <div
+                            className="w-full bg-red-400 group-hover:bg-red-500 transition-colors"
+                            style={{ height: `${(h.bots / maxHourlyVisits) * 100}%` }}
+                          />
+                        )}
+                        {h.humans > 0 && (
+                          <div
+                            className={`w-full bg-emerald-500 group-hover:bg-emerald-600 transition-colors ${h.bots === 0 ? "rounded-t-sm" : ""}`}
+                            style={{ height: `${(h.humans / maxHourlyVisits) * 100}%` }}
+                          />
+                        )}
+                        {h.total === 0 && (
+                          <div className="w-full bg-gray-100 rounded-t-sm" style={{ height: "2px" }} />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* X-axis labels */}
+                <div className="flex gap-[3px] mt-1.5">
+                  {analytics.hourly.map((h, i) => (
+                    <div key={i} className="flex-1 min-w-0 text-center text-[10px] text-gray-400 truncate">
+                      {i % 3 === 0 || i === 23 ? h.label : ""}
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           ) : (
-            <p className="text-gray-500 text-center py-8">No hourly data available yet</p>
+            <p className="text-gray-500 text-center py-8">No traffic in the last 24 hours</p>
           )}
         </CardContent>
       </Card>
