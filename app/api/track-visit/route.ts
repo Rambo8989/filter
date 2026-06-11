@@ -185,7 +185,7 @@ export async function POST(request: NextRequest) {
 
     // ── Log to DB ─────────────────────────────────────────────
     const logEntry = {
-      website_id:     websiteId ? Number(websiteId) : null,
+      website_id:     website?.id ?? (websiteId ? Number(websiteId) : null),
       ip_address:     ip,
       country,
       user_agent:     userAgent,
