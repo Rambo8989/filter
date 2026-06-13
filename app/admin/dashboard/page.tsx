@@ -233,11 +233,6 @@ export default function AdminDashboard() {
           </div>
         </div>
       )}
-      {!error && !loading && stats.total === 0 && (
-        <div style={{ background: "#F0FDF4", border: "1px solid #BBF7D0", borderRadius: 8, padding: "12px 16px", fontSize: 13, color: "#15803D" }}>
-          Database connected. Abhi tak koi visit log nahi hua — campaign ka tracking code safe page pe install karo.
-        </div>
-      )}
 
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
