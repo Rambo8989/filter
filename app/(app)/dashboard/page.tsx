@@ -436,7 +436,7 @@ export default function AdminDashboard() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0">
           <CardTitle>Recent Activity</CardTitle>
-          <Link href="/admin/logs" className="text-sm font-medium text-indigo-600 hover:text-indigo-700">
+          <Link href="/logs" className="text-sm font-medium text-indigo-600 hover:text-indigo-700">
             View full click log →
           </Link>
         </CardHeader>

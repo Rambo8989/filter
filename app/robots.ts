@@ -6,12 +6,12 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: "*",
         allow: "/",
-        disallow: ["/admin/", "/api/"],
+        disallow: ["/dashboard/", "/campaigns/", "/logs/", "/api/"],
       },
       {
         userAgent: ["Googlebot", "Bingbot"],
         allow: ["/", "/pricing", "/contact"],
-        disallow: ["/admin/", "/api/", "/safe"],
+        disallow: ["/dashboard/", "/campaigns/", "/logs/", "/api/", "/safe"],
       },
       // Block ad verification bots specifically
       {

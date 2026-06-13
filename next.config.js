@@ -30,6 +30,14 @@ const nextConfig = {
       },
     ]
   },
+  async redirects() {
+    return [
+      { source: "/admin", destination: "/dashboard", permanent: true },
+      { source: "/admin/dashboard", destination: "/dashboard", permanent: true },
+      { source: "/admin/campaigns", destination: "/campaigns", permanent: true },
+      { source: "/admin/logs", destination: "/logs", permanent: true },
+    ]
+  },
   webpack: (config) => {
     config.resolve.fallback = {
       ...config.resolve.fallback,

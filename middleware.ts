@@ -4,8 +4,8 @@ import { quickBotCheck } from "@/lib/advanced-bot-detection"
 
 // These paths are PUBLIC — never filter them
 const PUBLIC_PATHS = ["/login", "/signup", "/api", "/_next", "/favicon", "/safe", "/blocked", "/contact", "/robots"]
-// Admin paths need auth check
-const ADMIN_PATHS = ["/admin"]
+// Logged-in app paths need auth check
+const APP_PATHS = ["/dashboard", "/campaigns", "/logs"]
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
@@ -15,8 +15,8 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // Admin paths: just pass through — auth is handled by the layout (client-side /api/auth/me check)
-  if (ADMIN_PATHS.some(p => pathname.startsWith(p))) {
+  // App paths: just pass through — auth is handled by the layout (client-side /api/auth/me check)
+  if (APP_PATHS.some(p => pathname.startsWith(p))) {
     return NextResponse.next()
   }
 

@@ -23,7 +23,7 @@ export default function LoginPage() {
       })
       const data = await res.json()
       if (data.success) {
-        router.push("/admin/dashboard")
+        router.push("/dashboard")
         router.refresh()
       } else {
         setError(data.error || "Invalid email or password")

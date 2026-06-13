@@ -68,7 +68,7 @@ npm run dev
 4. **Bot/bad traffic** → stays on landing page (safe decoy)
 5. **Real human from allowed country** → passes through
 6. Everything gets logged to your Supabase database
-7. View analytics at `/admin/dashboard`
+7. View analytics at `/dashboard`
 
 ## Files Changed (vs original v0.dev version)
 

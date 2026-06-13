@@ -1,7 +1,7 @@
 -- ============================================================
 -- Run this ONCE in the Supabase SQL editor.
 --
--- Adds every column the Click Log (/admin/logs) feature needs
+-- Adds every column the Click Log (/logs) feature needs
 -- on access_logs. Safe to run multiple times — each column is
 -- only added if it doesn't already exist, so this won't touch
 -- or duplicate anything you already have.

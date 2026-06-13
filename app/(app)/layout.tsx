@@ -38,9 +38,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   if (!user) return null
 
   const navItems = [
-    { href: "/admin/dashboard", label: "Dashboard", icon: "📊" },
-    { href: "/admin/campaigns", label: "Campaigns", icon: "🚀" },
-    { href: "/admin/logs", label: "Click Log", icon: "📋" },
+    { href: "/dashboard", label: "Dashboard", icon: "📊" },
+    { href: "/campaigns", label: "Campaigns", icon: "🚀" },
+    { href: "/logs", label: "Click Log", icon: "📋" },
   ]
 
   return (
@@ -49,7 +49,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <header style={{ background: "white", borderBottom: "1px solid #E5E7EB", padding: "0 24px", display: "flex", alignItems: "center", justifyContent: "space-between", height: 56, position: "sticky", top: 0, zIndex: 50 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
           {/* Logo */}
-          <Link href="/admin/dashboard" style={{ display: "flex", alignItems: "center", gap: 8, textDecoration: "none" }}>
+          <Link href="/dashboard" style={{ display: "flex", alignItems: "center", gap: 8, textDecoration: "none" }}>
             <div style={{ width: 32, height: 32, background: "#4F46E5", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center" }}>
               <svg width="18" height="18" fill="none" viewBox="0 0 24 24"><path d="M12 2L3 7v5c0 5.25 3.75 10.15 9 11.35C17.25 22.15 21 17.25 21 12V7L12 2z" fill="white"/></svg>
             </div>

@@ -168,7 +168,7 @@ The system uses a neural network with 40+ features:
 - **Continuous Improvement**: Model accuracy improves with more data
 
 ### Training Interface
-Access the ML training interface at `/admin/dashboard` → Bot Analysis:
+Access the ML training interface at `/dashboard` → Bot Analysis:
 - Add manual training data
 - View model performance metrics
 - Trigger batch training

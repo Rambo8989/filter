@@ -40,7 +40,7 @@ export default function SignupPage() {
       const data = await res.json()
       if (data.success) {
         setSuccess(true)
-        setTimeout(() => router.push("/admin/dashboard"), 1500)
+        setTimeout(() => router.push("/dashboard"), 1500)
       } else {
         setError(data.error || "Signup failed. Please try again.")
       }
