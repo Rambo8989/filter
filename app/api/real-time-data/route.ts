@@ -1,8 +1,14 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { supabaseAdmin } from "@/lib/supabase"
+import { getSessionUser, getUserWebsiteIds } from "@/lib/session"
 
 export async function GET(request: NextRequest) {
   try {
+    const auth = getSessionUser(request)
+    if (!auth) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
+
+    const ownedIds = await getUserWebsiteIds(auth.userId)
+
     const { searchParams } = new URL(request.url)
     const websiteId = searchParams.get("websiteId")
     let websiteIdNum: number | null = null
@@ -13,6 +19,19 @@ export async function GET(request: NextRequest) {
       if (isNaN(websiteIdNum)) {
         websiteIdNum = null
       }
+    }
+
+    // Requested a specific campaign that isn't this user's
+    if (websiteIdNum !== null && !ownedIds.includes(websiteIdNum)) {
+      return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 })
+    }
+
+    // User has no campaigns at all — nothing to show
+    if (websiteIdNum === null && ownedIds.length === 0) {
+      return NextResponse.json({
+        success: true,
+        data: { activeVisitors: 0, visitsToday: 0, automatedToday: 0, conversionToday: 0, recentVisits: [] },
+      })
     }
 
     console.log("GET /api/real-time-data - Fetching real-time data", { websiteId })
@@ -29,6 +48,8 @@ export async function GET(request: NextRequest) {
 
     if (websiteIdNum) {
       activeQuery = activeQuery.eq("website_id", websiteIdNum)
+    } else {
+      activeQuery = activeQuery.in("website_id", ownedIds)
     }
 
     const { data: activeVisits, error: activeError } = await activeQuery
@@ -46,6 +67,8 @@ export async function GET(request: NextRequest) {
 
     if (websiteIdNum) {
       todayQuery = todayQuery.eq("website_id", websiteIdNum)
+    } else {
+      todayQuery = todayQuery.in("website_id", ownedIds)
     }
 
     const { data: todayVisits, error: todayError } = await todayQuery
@@ -68,6 +91,8 @@ export async function GET(request: NextRequest) {
 
     if (websiteIdNum) {
       recentQuery = recentQuery.eq("website_id", websiteIdNum)
+    } else {
+      recentQuery = recentQuery.in("website_id", ownedIds)
     }
 
     const { data: recentVisits, error: recentError } = await recentQuery

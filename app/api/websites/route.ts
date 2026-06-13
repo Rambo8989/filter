@@ -1,8 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { supabaseAdmin, isSupabaseConfigured } from "@/lib/supabase"
-import jwt from "jsonwebtoken"
-
-const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-in-production"
+import { getSessionUser } from "@/lib/session"
 
 function generateCampaignCode(name: string): string {
   const slug = name.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6)
@@ -17,19 +15,9 @@ function normalizeUrl(url: string): string {
   return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`
 }
 
-function verifyAuth(request: NextRequest): { userId: string } | null {
-  try {
-    const token = request.cookies.get("auth-token")?.value
-    if (!token) return null
-    return jwt.verify(token, JWT_SECRET) as any
-  } catch {
-    return null
-  }
-}
-
-// ── GET: List all websites ─────────────────────────────────
+// ── GET: List websites owned by the logged-in user ──────────
 export async function GET(request: NextRequest) {
-  const auth = verifyAuth(request)
+  const auth = getSessionUser(request)
   if (!auth) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
 
   if (!isSupabaseConfigured()) {
@@ -39,6 +27,7 @@ export async function GET(request: NextRequest) {
   const { data, error } = await supabaseAdmin
     .from("websites")
     .select("*")
+    .eq("user_id", auth.userId)
     .order("created_at", { ascending: false })
 
   if (error) return NextResponse.json({ success: false, error: error.message }, { status: 500 })
@@ -47,7 +36,7 @@ export async function GET(request: NextRequest) {
 
 // ── POST: Create website ───────────────────────────────────
 export async function POST(request: NextRequest) {
-  const auth = verifyAuth(request)
+  const auth = getSessionUser(request)
   if (!auth) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
 
   if (!isSupabaseConfigured()) {
@@ -70,6 +59,7 @@ export async function POST(request: NextRequest) {
     const campaignCode = generateCampaignCode(name)
 
     const insertPayload: Record<string, unknown> = {
+      user_id: auth.userId,
       name,
       domain: domain.replace(/^https?:\/\//, ""),
       landing_page_url: normalizeUrl(landingPageUrl),
@@ -102,9 +92,9 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// ── PUT: Update website ────────────────────────────────────
+// ── PUT: Update website (only if owned by the logged-in user) ─
 export async function PUT(request: NextRequest) {
-  const auth = verifyAuth(request)
+  const auth = getSessionUser(request)
   if (!auth) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
 
   if (!isSupabaseConfigured()) {
@@ -130,24 +120,25 @@ export async function PUT(request: NextRequest) {
     if (rest.cloakingEnabled !== undefined) updateData.cloaking_enabled = rest.cloakingEnabled
     if (rest.status !== undefined) updateData.status = rest.status
 
-    let { data, error } = await supabaseAdmin.from("websites").update(updateData).eq("id", id).select().single()
+    let { data, error } = await supabaseAdmin.from("websites").update(updateData).eq("id", id).eq("user_id", auth.userId).select().single()
 
     // `status` column may not exist yet (migration not run) — retry without it
     if (error?.code === "42703" && "status" in updateData) {
       const { status: _status, ...withoutStatus } = updateData
-      ;({ data, error } = await supabaseAdmin.from("websites").update(withoutStatus).eq("id", id).select().single())
+      ;({ data, error } = await supabaseAdmin.from("websites").update(withoutStatus).eq("id", id).eq("user_id", auth.userId).select().single())
     }
 
     if (error) return NextResponse.json({ success: false, error: error.message }, { status: 500 })
+    if (!data) return NextResponse.json({ success: false, error: "Campaign not found" }, { status: 404 })
     return NextResponse.json({ success: true, data })
   } catch (err) {
     return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 })
   }
 }
 
-// ── DELETE: Remove website ─────────────────────────────────
+// ── DELETE: Remove website (only if owned by the logged-in user) ─
 export async function DELETE(request: NextRequest) {
-  const auth = verifyAuth(request)
+  const auth = getSessionUser(request)
   if (!auth) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
 
   if (!isSupabaseConfigured()) {
@@ -158,7 +149,7 @@ export async function DELETE(request: NextRequest) {
   const id = searchParams.get("id")
   if (!id) return NextResponse.json({ success: false, error: "ID required" }, { status: 400 })
 
-  const { error } = await supabaseAdmin.from("websites").delete().eq("id", id)
+  const { error } = await supabaseAdmin.from("websites").delete().eq("id", id).eq("user_id", auth.userId)
   if (error) return NextResponse.json({ success: false, error: error.message }, { status: 500 })
   return NextResponse.json({ success: true, message: "Deleted successfully" })
 }

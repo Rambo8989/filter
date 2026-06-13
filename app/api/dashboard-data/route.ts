@@ -1,14 +1,11 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { supabaseAdmin, isSupabaseConfigured } from "@/lib/supabase"
-import jwt from "jsonwebtoken"
-
-const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-in-production"
+import { getSessionUser } from "@/lib/session"
 
 export async function GET(request: NextRequest) {
   try {
-    const token = request.cookies.get("auth-token")?.value
-    if (!token) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
-    jwt.verify(token, JWT_SECRET)
+    const auth = getSessionUser(request)
+    if (!auth) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
 
     if (!isSupabaseConfigured()) {
       return NextResponse.json({
@@ -22,15 +19,23 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    const [websitesRes, logsRes] = await Promise.all([
-      supabaseAdmin.from("websites").select("*").order("created_at", { ascending: false }),
-      supabaseAdmin
-        .from("access_logs")
-        .select("is_bot, action_taken, created_at")
-        .gte("created_at", new Date(Date.now() - 86400000).toISOString()),
-    ])
+    const websitesRes = await supabaseAdmin
+      .from("websites")
+      .select("*")
+      .eq("user_id", auth.userId)
+      .order("created_at", { ascending: false })
 
     const websites = websitesRes.data || []
+    const websiteIds = websites.map((w: any) => w.id)
+
+    const logsRes = websiteIds.length > 0
+      ? await supabaseAdmin
+          .from("access_logs")
+          .select("is_bot, action_taken, created_at")
+          .in("website_id", websiteIds)
+          .gte("created_at", new Date(Date.now() - 86400000).toISOString())
+      : { data: [] }
+
     const logs = logsRes.data || []
 
     const totalVisits24h = logs.length

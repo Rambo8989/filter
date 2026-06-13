@@ -1,8 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { supabaseAdmin, isSupabaseConfigured } from "@/lib/supabase"
-import jwt from "jsonwebtoken"
-
-const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-in-production"
+import { getSessionUser, getUserWebsiteIds } from "@/lib/session"
 
 function getStartDate(timeRange: string): Date {
   const now = new Date()
@@ -17,9 +15,8 @@ function getStartDate(timeRange: string): Date {
 
 export async function GET(request: NextRequest) {
   try {
-    const token = request.cookies.get("auth-token")?.value
-    if (!token) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
-    jwt.verify(token, JWT_SECRET)
+    const auth = getSessionUser(request)
+    if (!auth) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
 
     const { searchParams } = new URL(request.url)
     const websiteId = searchParams.get("websiteId")
@@ -33,6 +30,18 @@ export async function GET(request: NextRequest) {
 
     if (!isSupabaseConfigured()) return NextResponse.json(empty)
 
+    const ownedIds = await getUserWebsiteIds(auth.userId)
+
+    // Requested a specific campaign that isn't (or no longer is) this user's
+    if (websiteId && websiteId !== "all" && !ownedIds.includes(Number(websiteId))) {
+      return NextResponse.json(empty)
+    }
+
+    // User has no campaigns at all — nothing to show
+    if ((!websiteId || websiteId === "all") && ownedIds.length === 0) {
+      return NextResponse.json(empty)
+    }
+
     const startDate = getStartDate(timeRange)
     let query = supabaseAdmin
       .from("access_logs")
@@ -43,6 +52,8 @@ export async function GET(request: NextRequest) {
 
     if (websiteId && websiteId !== "all") {
       query = query.eq("website_id", Number(websiteId))
+    } else {
+      query = query.in("website_id", ownedIds)
     }
 
     const { data: logs, error } = await query

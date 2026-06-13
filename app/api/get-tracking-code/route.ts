@@ -1,15 +1,12 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { supabaseAdmin, isSupabaseConfigured } from "@/lib/supabase"
 import { generateCode, CODE_VARIANTS } from "@/lib/generate-tracking-code"
-import jwt from "jsonwebtoken"
-
-const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-in-production"
+import { getSessionUser } from "@/lib/session"
 
 export async function GET(request: NextRequest) {
   try {
-    const token = request.cookies.get("auth-token")?.value
-    if (!token) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
-    jwt.verify(token, JWT_SECRET)
+    const auth = getSessionUser(request)
+    if (!auth) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
 
     const { searchParams } = new URL(request.url)
     const websiteId = searchParams.get("websiteId")
@@ -23,11 +20,13 @@ export async function GET(request: NextRequest) {
 
     let website: any = null
     if (isSupabaseConfigured()) {
-      const { data } = await supabaseAdmin.from("websites").select("*").eq("id", Number(websiteId)).single()
+      const { data } = await supabaseAdmin.from("websites").select("*").eq("id", Number(websiteId)).eq("user_id", auth.userId).single()
       website = data
-    }
 
-    if (!website) {
+      if (!website) {
+        return NextResponse.json({ success: false, error: "Campaign not found" }, { status: 404 })
+      }
+    } else {
       website = {
         id: websiteId, name: "My Website", domain: "example.com",
         landing_page_url: "https://example.com/landing",

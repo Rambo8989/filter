@@ -1,10 +1,21 @@
-import { NextResponse } from "next/server"
+import { type NextRequest, NextResponse } from "next/server"
 import { DatabaseService } from "@/lib/database"
+import { getSessionUser, getUserWebsiteIds } from "@/lib/session"
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
+    const auth = getSessionUser(request)
+    if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+    const ownedIds = await getUserWebsiteIds(auth.userId)
+
     const { searchParams } = new URL(request.url)
     const websiteId = searchParams.get("websiteId")
+
+    // A specific campaign was requested — make sure it belongs to this user
+    if (websiteId && !ownedIds.includes(Number(websiteId))) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
 
     // Paginated / filtered click-log query (used by the Logs page)
     const page = searchParams.get("page")
@@ -16,6 +27,7 @@ export async function GET(request: Request) {
     if (page || pageSize || search || range || result) {
       const data = await DatabaseService.getAccessLogsFiltered({
         websiteId: websiteId ? Number(websiteId) : undefined,
+        websiteIds: websiteId ? undefined : ownedIds,
         search: search || undefined,
         range: range || "all",
         result: result || "all",
@@ -27,7 +39,11 @@ export async function GET(request: Request) {
 
     // Legacy: plain array of recent logs (used by the dashboard overview)
     const limit = Number.parseInt(searchParams.get("limit") || "100")
-    const logs = await DatabaseService.getAccessLogs(websiteId || undefined, limit)
+    const logs = await DatabaseService.getAccessLogs(
+      websiteId ? Number(websiteId) : undefined,
+      limit,
+      websiteId ? undefined : ownedIds
+    )
 
     return NextResponse.json(logs)
   } catch (error) {

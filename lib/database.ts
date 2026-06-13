@@ -43,6 +43,7 @@ export interface AccessLog {
 
 export interface AccessLogQuery {
   websiteId?: number
+  websiteIds?: number[]
   search?: string
   range?: "24h" | "7d" | "30d" | "all"
   result?: "money" | "safe" | "all"
@@ -169,8 +170,13 @@ export class DatabaseService {
     }
   }
 
-  static async getAccessLogs(websiteId?: number, limit = 100): Promise<AccessLog[]> {
+  static async getAccessLogs(websiteId?: number, limit = 100, websiteIds?: number[]): Promise<AccessLog[]> {
     if (!isSupabaseConfigured() || !supabaseAdmin) {
+      return []
+    }
+
+    // No campaigns owned by this user — nothing to show
+    if (websiteIds && websiteIds.length === 0) {
       return []
     }
 
@@ -179,6 +185,8 @@ export class DatabaseService {
 
       if (websiteId) {
         query = query.eq("website_id", websiteId)
+      } else if (websiteIds) {
+        query = query.in("website_id", websiteIds)
       }
 
       const { data, error } = await query
@@ -200,6 +208,11 @@ export class DatabaseService {
       return { logs: [], total: 0 }
     }
 
+    // No campaigns owned by this user — nothing to show
+    if (opts.websiteIds && opts.websiteIds.length === 0) {
+      return { logs: [], total: 0 }
+    }
+
     const page = Math.max(1, opts.page || 1)
     const pageSize = Math.min(200, Math.max(1, opts.pageSize || 50))
     const from = (page - 1) * pageSize
@@ -213,6 +226,8 @@ export class DatabaseService {
 
       if (opts.websiteId) {
         query = query.eq("website_id", opts.websiteId)
+      } else if (opts.websiteIds) {
+        query = query.in("website_id", opts.websiteIds)
       }
 
       if (opts.result === "money" || opts.result === "safe") {
