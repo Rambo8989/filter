@@ -38,20 +38,32 @@ export default function LoginPage() {
   return (
     <div style={{ minHeight: "100vh", display: "flex", background: "#F8F7FF" }}>
       {/* Left panel */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", padding: "40px", background: "#4F46E5" }} className="hidden-mobile">
-        <div style={{ maxWidth: 380, color: "white" }}>
+      <div style={{ flex: 1, position: "relative", overflow: "hidden", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", padding: "40px", background: "linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%)" }} className="hidden-mobile">
+        {/* Decorative shapes */}
+        <div style={{ position: "absolute", top: -100, right: -100, width: 280, height: 280, borderRadius: "50%", background: "rgba(255,255,255,0.08)" }} />
+        <div style={{ position: "absolute", bottom: -120, left: -90, width: 320, height: 320, borderRadius: "50%", background: "rgba(255,255,255,0.06)" }} />
+        <div style={{ position: "absolute", top: "55%", left: -30, width: 120, height: 120, borderRadius: "50%", background: "rgba(255,255,255,0.05)" }} />
+
+        <div style={{ maxWidth: 380, color: "white", position: "relative", zIndex: 1 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 48 }}>
-            <div style={{ width: 40, height: 40, background: "rgba(255,255,255,0.2)", borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <div style={{ width: 40, height: 40, background: "rgba(255,255,255,0.15)", borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center" }}>
               <svg width="22" height="22" fill="none" viewBox="0 0 24 24"><path d="M12 2L3 7v5c0 5.25 3.75 10.15 9 11.35C17.25 22.15 21 17.25 21 12V7L12 2z" fill="white"/></svg>
             </div>
             <span style={{ fontSize: 20, fontWeight: 600 }}>Traffic Filter Pro</span>
           </div>
-          <h1 style={{ fontSize: 32, fontWeight: 700, marginBottom: 16, lineHeight: 1.3 }}>Block bots, protect your ad spend</h1>
-          <p style={{ fontSize: 15, opacity: 0.85, lineHeight: 1.7, marginBottom: 40 }}>60+ ad platform detection, datacenter IP blocking, real-time analytics — completely free.</p>
+          <h1 style={{ fontSize: 34, fontWeight: 700, marginBottom: 16, lineHeight: 1.3, letterSpacing: "-0.5px" }}>Smarter traffic, better results</h1>
+          <p style={{ fontSize: 15, opacity: 0.85, lineHeight: 1.7, marginBottom: 40 }}>
+            Keep your campaigns running smoothly with smart, automatic traffic filtering — built for marketers, not engineers.
+          </p>
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            {["Real-time bot detection with 5-layer analysis", "65+ ad platform IP ranges blocked automatically", "Datacenter, VPN & proxy detection", "Works with any website — HTML, PHP, WordPress, Next.js"].map(f => (
+            {[
+              "Filters out unwanted visitors automatically",
+              "Clear, real-time traffic insights",
+              "Works with any website — no coding needed",
+              "Set it up once, then it runs on its own",
+            ].map(f => (
               <div key={f} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <div style={{ width: 20, height: 20, background: "rgba(255,255,255,0.2)", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <div style={{ width: 22, height: 22, background: "rgba(255,255,255,0.15)", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                   <svg width="12" height="12" viewBox="0 0 12 12"><path d="M2 6l3 3 5-5" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/></svg>
                 </div>
                 <span style={{ fontSize: 14, opacity: 0.9 }}>{f}</span>
@@ -63,7 +75,7 @@ export default function LoginPage() {
 
       {/* Right panel */}
       <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: "40px 24px" }}>
-        <div style={{ width: "100%", maxWidth: 400 }}>
+        <div style={{ width: "100%", maxWidth: 400, background: "white", borderRadius: 16, padding: "40px 36px", boxShadow: "0 10px 40px rgba(79, 70, 229, 0.08)" }}>
           <div style={{ textAlign: "center", marginBottom: 32 }}>
             <div style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 48, height: 48, background: "#EDE9FE", borderRadius: 12, marginBottom: 16 }}>
               <svg width="24" height="24" fill="none" viewBox="0 0 24 24"><path d="M12 2L3 7v5c0 5.25 3.75 10.15 9 11.35C17.25 22.15 21 17.25 21 12V7L12 2z" fill="#4F46E5"/></svg>
@@ -83,8 +95,8 @@ export default function LoginPage() {
             <div style={{ marginBottom: 16 }}>
               <label style={{ display: "block", fontSize: 13, fontWeight: 500, color: "#374151", marginBottom: 6 }}>Email address</label>
               <input type="email" value={email} onChange={e => setEmail(e.target.value)} required
-                placeholder="you@example.com" autoComplete="email"
-                style={{ width: "100%", padding: "10px 12px", border: "1px solid #D1D5DB", borderRadius: 8, fontSize: 14, outline: "none", boxSizing: "border-box", background: "white" }} />
+                placeholder="you@example.com" autoComplete="email" className="auth-input"
+                style={{ width: "100%", padding: "10px 12px", border: "1px solid #D1D5DB", borderRadius: 8, fontSize: 14, outline: "none", boxSizing: "border-box", background: "white", transition: "border-color 0.15s, box-shadow 0.15s" }} />
             </div>
 
             <div style={{ marginBottom: 24 }}>
@@ -93,8 +105,8 @@ export default function LoginPage() {
               </div>
               <div style={{ position: "relative" }}>
                 <input type={showPw ? "text" : "password"} value={password} onChange={e => setPassword(e.target.value)} required
-                  placeholder="Enter your password" autoComplete="current-password"
-                  style={{ width: "100%", padding: "10px 40px 10px 12px", border: "1px solid #D1D5DB", borderRadius: 8, fontSize: 14, outline: "none", boxSizing: "border-box", background: "white" }} />
+                  placeholder="Enter your password" autoComplete="current-password" className="auth-input"
+                  style={{ width: "100%", padding: "10px 40px 10px 12px", border: "1px solid #D1D5DB", borderRadius: 8, fontSize: 14, outline: "none", boxSizing: "border-box", background: "white", transition: "border-color 0.15s, box-shadow 0.15s" }} />
                 <button type="button" onClick={() => setShowPw(!showPw)}
                   style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#9CA3AF", padding: 0 }}>
                   {showPw ? "🙈" : "👁️"}
@@ -102,8 +114,8 @@ export default function LoginPage() {
               </div>
             </div>
 
-            <button type="submit" disabled={loading || !email || !password}
-              style={{ width: "100%", padding: "11px", background: loading ? "#818CF8" : "#4F46E5", color: "white", border: "none", borderRadius: 8, fontSize: 15, fontWeight: 600, cursor: loading ? "not-allowed" : "pointer" }}>
+            <button type="submit" disabled={loading || !email || !password} className="auth-btn"
+              style={{ width: "100%", padding: "12px", background: loading ? "#818CF8" : "#4F46E5", color: "white", border: "none", borderRadius: 8, fontSize: 15, fontWeight: 600, cursor: loading ? "not-allowed" : "pointer", transition: "background 0.15s, transform 0.1s" }}>
               {loading ? "Signing in..." : "Sign in"}
             </button>
           </form>
@@ -114,6 +126,12 @@ export default function LoginPage() {
           </p>
         </div>
       </div>
+
+      <style>{`
+        .auth-input:focus { border-color: #4F46E5 !important; box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12); }
+        .auth-btn:hover:not(:disabled) { background: #4338CA !important; }
+        .auth-btn:active:not(:disabled) { transform: scale(0.99); }
+      `}</style>
     </div>
   )
 }
