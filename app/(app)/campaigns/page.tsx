@@ -617,18 +617,6 @@ export default function CampaignsPage() {
                       value={form.safePageUrl} onChange={e => setF({ safePageUrl: e.target.value })} />
                   </div>
                 </div>
-
-                <div style={{ marginTop: 20, background: "#F0F9FF", border: "1px solid #BAE6FD", borderRadius: 8, padding: "14px 16px" }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: "#0369A1", marginBottom: 8 }}>Traffic Flow</div>
-                  <div style={{ fontSize: 12, color: "#0369A1", lineHeight: 2 }}>
-                    <div>🔗 <strong>Ad click</strong> → visitor lands on <strong>Safe Page</strong> (this URL, with tracking code)</div>
-                    <div>✅ <strong>Real visitor</strong> (residential IP, real browser) → silently redirected to your <strong>Money Page</strong></div>
-                    <div>🚫 <strong>Bot / VPN / Datacenter / Human Reviewer</strong> → stays on Safe Page, never reaches your offer</div>
-                  </div>
-                  <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid #BAE6FD", fontSize: 12, color: "#0369A1" }}>
-                    <strong>Tip:</strong> Use a clean, neutral-looking page — a blog article, news page, or info site. It should look completely unrelated to your actual offer so reviewers have nothing to flag.
-                  </div>
-                </div>
               </div>
             )}
 
