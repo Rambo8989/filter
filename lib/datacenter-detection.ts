@@ -39,6 +39,10 @@ const DATACENTER_ASN_KEYWORDS = [
   "network solutions", "web hosting", "managed hosting",
   "serverius", "servercentral", "wholesail networks",
   "multacom", "frantech", "peg tech", "contabo",
+  // Additional cloud / hosting providers
+  "upcloud", "m247", "g-core", "gcore", "psychz", "limestone networks",
+  "netcup", "time4vps", "cherry servers", "kamatera", "atlantic.net",
+  "interserver", "ionos", "1&1", "hivelocity", "datapacket",
 ]
 
 // ── VPN / Proxy provider keywords ───────────────────────────
@@ -54,6 +58,13 @@ const VPN_PROVIDER_KEYWORDS = [
   "zenmate", "speedify", "hola vpn", "touch vpn",
   "opera vpn", "avast vpn", "avg vpn", "kaspersky vpn",
   "norton vpn", "bitdefender vpn",
+  // Newer / mobile consumer VPNs
+  "atlas vpn", "atlasvpn", "urban vpn", "x-vpn", "xvpn", "browsec",
+  "psiphon", "betternet", "turbo vpn", "thunder vpn", "snap vpn",
+  "vpn master", "vpn proxy master", "hexatech", "dotvpn", "setupvpn",
+  "goose vpn", "zoogvpn", "f-secure freedome", "mcafee safe connect",
+  "hoxx vpn", "whoer vpn", "rusvpn", "vpn.ht", "trust.zone", "fastestvpn",
+  "pandavpn", "cloudflare warp", "warp vpn",
   // Generic VPN/proxy keywords
   "vpn", "proxy", "anonymous", "anonymizer", "anonymizing",
   "privacy network", "private network", "secure tunnel",
@@ -64,6 +75,10 @@ const VPN_PROVIDER_KEYWORDS = [
   "smartproxy", "geosurf", "shifter.io", "netnut",
   "soax", "rayobyte", "ipidea", "stormproxies",
   "microleaves", "myprivateproxy", "ssl private proxy",
+  // Newer residential/datacenter proxy services
+  "iproyal", "proxyrack", "proxy-cheap", "proxycheap", "nodemaven",
+  "proxyempire", "webshare", "922proxy", "packetstream", "infatica",
+  "proxyseller", "asocks", "lunaproxy", "abcproxy", "froxy",
 ]
 
 // ── Human reviewer / ad platform corporate ASNs ─────────────
@@ -108,6 +123,7 @@ export const SPY_TOOL_PATTERNS = [
   /anstrex/i, /bigspy/i, /poweradspy/i,
   /adcreative/i, /admobispy/i, /spy\.house/i,
   /push\.house.*spy/i, /nativeadsbuzz/i,
+  /minea/i, /pipiads/i, /dropispy/i, /ecomhunt/i, /peeksta/i, /adheart/i, /spyover/i,
 ]
 
 // ── CIDR utilities ────────────────────────────────────────────
