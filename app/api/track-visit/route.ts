@@ -69,6 +69,13 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Campaign deleted, or the account that owned it was removed — do
+    // nothing, no redirect, no log. (Skipped when Supabase isn't configured
+    // so the local dev fallback below still works without a database.)
+    if (isSupabaseConfigured() && !website) {
+      return NextResponse.json({ action: "stay_on_safe", reason: "campaign_not_found", page_shown: "safe", redirectUrl: null })
+    }
+
     const config = website || {
       cloaking_enabled: true,
       allowed_countries: [],
