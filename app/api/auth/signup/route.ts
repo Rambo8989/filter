@@ -16,6 +16,9 @@ export async function POST(request: NextRequest) {
     }
 
     const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-in-production"
+    // 400 days — the max cookie lifetime browsers allow. Combined with a
+    // non-expiring JWT, this keeps the user logged in until they log out.
+    const COOKIE_MAX_AGE = 60 * 60 * 24 * 400
 
     if (!isSupabaseConfigured()) {
       return NextResponse.json({ success: false, error: "Database not configured. Please add Supabase environment variables." }, { status: 503 })
@@ -55,8 +58,7 @@ export async function POST(request: NextRequest) {
 
     const token = jwt.sign(
       { userId: user.id, email: user.email, name: user.name, role: user.role },
-      JWT_SECRET,
-      { expiresIn: "7d" }
+      JWT_SECRET
     )
 
     const res = NextResponse.json({
@@ -68,7 +70,7 @@ export async function POST(request: NextRequest) {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
-      maxAge: 604800,
+      maxAge: COOKIE_MAX_AGE,
     })
     return res
   } catch (err) {

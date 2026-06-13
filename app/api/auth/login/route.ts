@@ -12,17 +12,19 @@ export async function POST(request: NextRequest) {
     }
 
     const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-in-production"
+    // 400 days — the max cookie lifetime browsers allow. Combined with a
+    // non-expiring JWT, this keeps the user logged in until they log out.
+    const COOKIE_MAX_AGE = 60 * 60 * 24 * 400
 
     // ── DEV MODE (no Supabase) ────────────────────────────────
     if (!isSupabaseConfigured()) {
       if (email === "admin@example.com" && password === "Admin@123") {
         const token = jwt.sign(
           { userId: "dev-1", email, name: "Admin", role: "admin" },
-          JWT_SECRET,
-          { expiresIn: "7d" }
+          JWT_SECRET
         )
         const res = NextResponse.json({ success: true, user: { id: "dev-1", email, name: "Admin", role: "admin" } })
-        res.cookies.set("auth-token", token, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", maxAge: 604800 })
+        res.cookies.set("auth-token", token, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", maxAge: COOKIE_MAX_AGE })
         return res
       }
       return NextResponse.json({ success: false, error: "Invalid credentials" }, { status: 401 })
@@ -49,8 +51,7 @@ export async function POST(request: NextRequest) {
 
     const token = jwt.sign(
       { userId: user.id, email: user.email, name: user.name || user.username, role: user.role },
-      JWT_SECRET,
-      { expiresIn: "7d" }
+      JWT_SECRET
     )
 
     const res = NextResponse.json({
@@ -61,7 +62,7 @@ export async function POST(request: NextRequest) {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
-      maxAge: 604800,
+      maxAge: COOKIE_MAX_AGE,
     })
     return res
   } catch (err) {
